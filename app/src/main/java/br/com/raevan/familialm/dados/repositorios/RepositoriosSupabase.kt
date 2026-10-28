@@ -285,7 +285,11 @@ class RepositorioRotinasSupabase(
         },
         moedasRecompensa = moedasRecompensa,
         estaConcluida = estaConcluida,
-        atualizadoEm = atualizadoEm
+        atualizadoEm = atualizadoEm,
+        diasSemana = diasSemana,
+        diaMes = diaMes,
+        abertaParaTodos = abertaParaTodos || responsavelId == null,
+        ultimaConclusaoData = ultimaConclusaoData
     )
 
     private fun ItemLojaDto.paraDominio() = ItemLojaPrivilegio(

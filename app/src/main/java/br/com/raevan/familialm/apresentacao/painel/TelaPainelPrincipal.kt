@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.sp
 import br.com.raevan.familialm.apresentacao.componentes.BarraSuperiorHomeHub
 import br.com.raevan.familialm.apresentacao.componentes.CartaoResumoFinanceiro
 import br.com.raevan.familialm.apresentacao.componentes.formatarMoeda
+import br.com.raevan.familialm.dominio.modelos.RecorrenciaTarefa
 import br.com.raevan.familialm.dominio.modelos.TarefaRotina
 import br.com.raevan.familialm.nucleo.tema.*
 
@@ -376,11 +377,39 @@ fun TelaPainelPrincipal(
 @Composable
 fun ItemTarefaPainel(
     tarefa: TarefaRotina,
+    usuarioLogadoId: String? = null,
     aoAlternar: () -> Unit
 ) {
+    val hoje = java.time.LocalDate.now()
+    val diaMesHoje = hoje.dayOfMonth
+    val diaSemanaId = when (hoje.dayOfWeek) {
+        java.time.DayOfWeek.MONDAY -> "Seg"
+        java.time.DayOfWeek.TUESDAY -> "Ter"
+        java.time.DayOfWeek.WEDNESDAY -> "Qua"
+        java.time.DayOfWeek.THURSDAY -> "Qui"
+        java.time.DayOfWeek.FRIDAY -> "Sex"
+        java.time.DayOfWeek.SATURDAY -> "Sáb"
+        java.time.DayOfWeek.SUNDAY -> "Dom"
+    }
+
+    val ehAberta = tarefa.abertaParaTodos || tarefa.responsavelId == null
+    val ehMinhaResponsabilidade = ehAberta || (usuarioLogadoId != null && tarefa.responsavelId == usuarioLogadoId)
+
+    val disponivelHoje = when (tarefa.recorrencia) {
+        RecorrenciaTarefa.DIARIA -> true
+        RecorrenciaTarefa.SEMANAL -> {
+            val dias = (tarefa.diasSemana ?: "").split(",").map { it.trim() }
+            dias.contains(diaSemanaId)
+        }
+        RecorrenciaTarefa.MENSAL -> tarefa.diaMes == diaMesHoje
+        RecorrenciaTarefa.UNICA -> true
+    }
+
+    val podeConcluir = disponivelHoje && ehMinhaResponsabilidade
+
     Surface(
         shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surface,
+        color = if (tarefa.estaConcluida) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f) else MaterialTheme.colorScheme.surface,
         border = androidx.compose.foundation.BorderStroke(
             1.dp,
             if (tarefa.estaConcluida) VerdeEsmeralda.copy(alpha = 0.3f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
@@ -390,12 +419,13 @@ fun ItemTarefaPainel(
         Row(
             modifier = Modifier
                 .padding(12.dp)
-                .clickable { aoAlternar() },
+                .clickable(enabled = podeConcluir) { aoAlternar() },
             verticalAlignment = Alignment.CenterVertically
         ) {
             Checkbox(
                 checked = tarefa.estaConcluida,
-                onCheckedChange = { aoAlternar() },
+                enabled = podeConcluir,
+                onCheckedChange = { if (podeConcluir) aoAlternar() },
                 colors = CheckboxDefaults.colors(checkedColor = VerdeEsmeralda)
             )
             Spacer(modifier = Modifier.width(8.dp))
@@ -404,13 +434,24 @@ fun ItemTarefaPainel(
                     text = tarefa.titulo,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
-                    color = if (tarefa.estaConcluida) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
+                    color = if (tarefa.estaConcluida) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                    textDecoration = if (tarefa.estaConcluida) androidx.compose.ui.text.style.TextDecoration.LineThrough else null
                 )
-                Text(
-                    text = "${tarefa.nomeResponsavel ?: "Todos"} • ${tarefa.dataLimite ?: "Hoje"}",
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = if (ehAberta) "👥 Aberta para todos" else (tarefa.nomeResponsavel ?: "Responsável"),
+                        fontSize = 11.sp,
+                        color = if (ehAberta) VerdeEsmeralda else MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = if (ehAberta) FontWeight.Bold else FontWeight.Normal
+                    )
+                    if (!disponivelHoje) {
+                        Text(
+                            text = " • 🔒 Bloqueada hoje",
+                            fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
             }
             Surface(
                 shape = RoundedCornerShape(8.dp),

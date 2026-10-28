@@ -10,6 +10,7 @@ sealed class DestinoNavegacao(
     val titulo: String,
     val icone: ImageVector
 ) {
+    object Login : DestinoNavegacao("login", "Login", Icons.Default.Lock)
     object Painel : DestinoNavegacao("painel", "Início", Icons.Default.Home)
     object Financas : DestinoNavegacao("financas", "Finanças", Icons.Default.AccountBalanceWallet)
     object Rotinas : DestinoNavegacao("rotinas", "Rotinas", Icons.Default.Checklist)

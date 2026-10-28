@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
@@ -14,6 +15,10 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import br.com.raevan.familialm.apresentacao.login.LoginViewModel
+import br.com.raevan.familialm.apresentacao.login.TelaLogin
+import br.com.raevan.familialm.dados.rede.ClienteSupabase
+import io.github.jan.supabase.auth.auth
 import br.com.raevan.familialm.apresentacao.automacao.AutomacaoViewModel
 import br.com.raevan.familialm.apresentacao.automacao.TelaAutomacaoSeguranca
 import br.com.raevan.familialm.apresentacao.cofre.CofreViewModel
@@ -45,56 +50,73 @@ fun EstruturaNavegacaoPrincipal() {
     val entradaPilhaAtual by controladorNavegacao.currentBackStackEntryAsState()
     val rotaAtual = entradaPilhaAtual?.destination?.route
 
+    val loginViewModel: LoginViewModel = viewModel()
+    val sessaoExiste = remember { ClienteSupabase.client.auth.currentSessionOrNull() != null }
+    val rotaInicial = if (sessaoExiste) DestinoNavegacao.Painel.rota else DestinoNavegacao.Login.rota
+
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         bottomBar = {
-            NavigationBar(
-                containerColor = MaterialTheme.colorScheme.surface,
-                tonalElevation = NavigationBarDefaults.Elevation
-            ) {
-                DestinoNavegacao.itensBarraInferior.forEach { destino ->
-                    val estaSelecionado = rotaAtual == destino.rota
-                    NavigationBarItem(
-                        selected = estaSelecionado,
-                        onClick = {
-                            if (rotaAtual != destino.rota) {
-                                controladorNavegacao.navigate(destino.rota) {
-                                    popUpTo(controladorNavegacao.graph.findStartDestination().id) {
-                                        saveState = true
+            if (rotaAtual != DestinoNavegacao.Login.rota) {
+                NavigationBar(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    tonalElevation = NavigationBarDefaults.Elevation
+                ) {
+                    DestinoNavegacao.itensBarraInferior.forEach { destino ->
+                        val estaSelecionado = rotaAtual == destino.rota
+                        NavigationBarItem(
+                            selected = estaSelecionado,
+                            onClick = {
+                                if (rotaAtual != destino.rota) {
+                                    controladorNavegacao.navigate(destino.rota) {
+                                        popUpTo(controladorNavegacao.graph.findStartDestination().id) {
+                                            saveState = true
+                                        }
+                                        launchSingleTop = true
+                                        restoreState = true
                                     }
-                                    launchSingleTop = true
-                                    restoreState = true
                                 }
-                            }
-                        },
-                        icon = {
-                            Icon(
-                                imageVector = destino.icone,
-                                contentDescription = destino.titulo
+                            },
+                            icon = {
+                                Icon(
+                                    imageVector = destino.icone,
+                                    contentDescription = destino.titulo
+                                )
+                            },
+                            label = {
+                                Text(
+                                    text = destino.titulo,
+                                    fontSize = 11.sp,
+                                    fontWeight = if (estaSelecionado) FontWeight.Bold else FontWeight.Normal
+                                )
+                            },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = AzulPrimario,
+                                selectedTextColor = AzulPrimario,
+                                indicatorColor = MaterialTheme.colorScheme.primaryContainer
                             )
-                        },
-                        label = {
-                            Text(
-                                text = destino.titulo,
-                                fontSize = 11.sp,
-                                fontWeight = if (estaSelecionado) FontWeight.Bold else FontWeight.Normal
-                            )
-                        },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = AzulPrimario,
-                            selectedTextColor = AzulPrimario,
-                            indicatorColor = MaterialTheme.colorScheme.primaryContainer
                         )
-                    )
+                    }
                 }
             }
         }
     ) { preenchimento ->
         NavHost(
             navController = controladorNavegacao,
-            startDestination = DestinoNavegacao.Painel.rota,
+            startDestination = rotaInicial,
             modifier = Modifier.padding(preenchimento)
         ) {
+            composable(DestinoNavegacao.Login.rota) {
+                TelaLogin(
+                    viewModel = loginViewModel,
+                    aoLoginSucesso = {
+                        controladorNavegacao.navigate(DestinoNavegacao.Painel.rota) {
+                            popUpTo(DestinoNavegacao.Login.rota) { inclusive = true }
+                        }
+                    }
+                )
+            }
+
             composable(DestinoNavegacao.Painel.rota) {
                 val viewModel: PainelViewModel = viewModel()
                 TelaPainelPrincipal(
@@ -135,7 +157,13 @@ fun EstruturaNavegacaoPrincipal() {
                     aoNavegarParaMural = { controladorNavegacao.navigate(DestinoNavegacao.Mural.rota) },
                     aoNavegarParaAutomacao = { controladorNavegacao.navigate(DestinoNavegacao.Automacao.rota) },
                     aoNavegarParaCompras = { controladorNavegacao.navigate(DestinoNavegacao.Compras.rota) },
-                    aoNavegarParaContatos = { controladorNavegacao.navigate(DestinoNavegacao.Contatos.rota) }
+                    aoNavegarParaContatos = { controladorNavegacao.navigate(DestinoNavegacao.Contatos.rota) },
+                    aoFazerLogout = {
+                        loginViewModel.fazerLogout()
+                        controladorNavegacao.navigate(DestinoNavegacao.Login.rota) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
                 )
             }
 

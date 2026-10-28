@@ -2,6 +2,7 @@ package br.com.raevan.familialm.apresentacao.painel
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.*
@@ -22,7 +23,8 @@ fun TelaMaisModulos(
     aoNavegarParaMural: () -> Unit,
     aoNavegarParaAutomacao: () -> Unit,
     aoNavegarParaCompras: () -> Unit,
-    aoNavegarParaContatos: () -> Unit
+    aoNavegarParaContatos: () -> Unit,
+    aoFazerLogout: () -> Unit
 ) {
     Scaffold(
         topBar = {
@@ -111,6 +113,22 @@ fun TelaMaisModulos(
                     corDestaque = CorContatos,
                     aoClicar = aoNavegarParaContatos
                 )
+            }
+
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = aoFazerLogout,
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                ) {
+                    Icon(imageVector = Icons.Default.ExitToApp, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Sair da Conta (Logout)", fontWeight = FontWeight.Bold)
+                }
             }
 
             item { Spacer(modifier = Modifier.height(24.dp)) }

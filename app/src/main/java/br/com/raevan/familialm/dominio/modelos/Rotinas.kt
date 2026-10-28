@@ -16,7 +16,11 @@ data class TarefaRotina(
     val moedasRecompensa: Int = 5,
     val dataLimite: String? = null,
     val estaConcluida: Boolean = false,
-    val atualizadoEm: String = ""
+    val atualizadoEm: String = "",
+    val diasSemana: String? = null,
+    val diaMes: Int? = null,
+    val abertaParaTodos: Boolean = false,
+    val ultimaConclusaoData: String? = null
 )
 
 data class ItemLojaPrivilegio(

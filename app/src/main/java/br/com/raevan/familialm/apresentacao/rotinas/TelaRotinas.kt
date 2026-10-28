@@ -20,6 +20,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import br.com.raevan.familialm.apresentacao.painel.ItemTarefaPainel
 import br.com.raevan.familialm.dominio.modelos.ItemLojaPrivilegio
+import br.com.raevan.familialm.dominio.modelos.RecorrenciaTarefa
+import br.com.raevan.familialm.dominio.modelos.TarefaRotina
 import br.com.raevan.familialm.nucleo.tema.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -28,6 +30,41 @@ fun TelaRotinas(
     viewModel: RotinasViewModel
 ) {
     val estado by viewModel.estado.collectAsState()
+    val usuarioLogado = estado.usuarioLogado
+
+    val tarefasFiltradas = if (estado.membroFiltroId == null) {
+        estado.tarefas
+    } else {
+        estado.tarefas.filter { it.responsavelId == estado.membroFiltroId }
+    }
+
+    val tarefasOrdenadas = remember(tarefasFiltradas, usuarioLogado) {
+        val hoje = java.time.LocalDate.now()
+        val diaMesHoje = hoje.dayOfMonth
+        val diaSemanaId = when (hoje.dayOfWeek) {
+            java.time.DayOfWeek.MONDAY -> "Seg"
+            java.time.DayOfWeek.TUESDAY -> "Ter"
+            java.time.DayOfWeek.WEDNESDAY -> "Qua"
+            java.time.DayOfWeek.THURSDAY -> "Qui"
+            java.time.DayOfWeek.FRIDAY -> "Sex"
+            java.time.DayOfWeek.SATURDAY -> "Sáb"
+            java.time.DayOfWeek.SUNDAY -> "Dom"
+        }
+
+        tarefasFiltradas.sortedWith(
+            compareBy<TarefaRotina> { t ->
+                val ehAberta = t.abertaParaTodos || t.responsavelId == null
+                val ehMinha = ehAberta || (usuarioLogado != null && t.responsavelId == usuarioLogado.id)
+                val disp = when (t.recorrencia) {
+                    RecorrenciaTarefa.DIARIA -> true
+                    RecorrenciaTarefa.SEMANAL -> (t.diasSemana ?: "").split(",").map { it.trim() }.contains(diaSemanaId)
+                    RecorrenciaTarefa.MENSAL -> t.diaMes == diaMesHoje
+                    RecorrenciaTarefa.UNICA -> true
+                }
+                if (ehMinha && disp && !t.estaConcluida) 0 else if (t.estaConcluida) 1 else 2
+            }.thenBy { it.titulo }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -183,16 +220,11 @@ fun TelaRotinas(
                     }
                 }
 
-                val tarefasFiltradas = if (estado.membroFiltroId == null) {
-                    estado.tarefas
-                } else {
-                    estado.tarefas.filter { it.responsavelId == estado.membroFiltroId }
-                }
-
-                items(tarefasFiltradas.size) { indice ->
-                    val tarefa = tarefasFiltradas[indice]
+                items(tarefasOrdenadas.size) { indice ->
+                    val tarefa = tarefasOrdenadas[indice]
                     ItemTarefaPainel(
                         tarefa = tarefa,
+                        usuarioLogadoId = usuarioLogado?.id,
                         aoAlternar = { viewModel.alternarConclusaoTarefa(tarefa.id) }
                     )
                 }
