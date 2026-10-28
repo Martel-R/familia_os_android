@@ -6,7 +6,9 @@ data class ContatoAgenda(
     val especialidade: String? = null,
     val telefone: String,
     val ehEmergencia: Boolean = false,
-    val observacoes: String? = null
+    val observacoes: String? = null,
+    val email: String? = null,
+    val selecionado: Boolean = false
 )
 
 data class ItemInventario(

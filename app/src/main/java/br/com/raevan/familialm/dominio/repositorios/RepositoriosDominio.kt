@@ -52,6 +52,7 @@ interface RepositorioInventario {
     fun buscarItens(termo: String): Flow<List<ItemInventario>>
     fun listarContatos(): Flow<List<ContatoAgenda>>
     fun listarHistoricoManutencoes(): Flow<List<HistoricoManutencao>>
+    suspend fun sincronizarContatos(contatos: List<ContatoAgenda>): Int
 }
 
 interface RepositorioMural {

@@ -20,6 +20,8 @@ import br.com.raevan.familialm.apresentacao.cofre.CofreViewModel
 import br.com.raevan.familialm.apresentacao.cofre.TelaCofreSenhas
 import br.com.raevan.familialm.apresentacao.compras.ComprasViewModel
 import br.com.raevan.familialm.apresentacao.compras.TelaComprasInteligentes
+import br.com.raevan.familialm.apresentacao.contatos.ContatosViewModel
+import br.com.raevan.familialm.apresentacao.contatos.TelaContatos
 import br.com.raevan.familialm.apresentacao.eventos.EventosViewModel
 import br.com.raevan.familialm.apresentacao.eventos.TelaEventos
 import br.com.raevan.familialm.apresentacao.financas.FinancasViewModel
@@ -132,8 +134,14 @@ fun EstruturaNavegacaoPrincipal() {
                     aoNavegarParaInventario = { controladorNavegacao.navigate(DestinoNavegacao.Inventario.rota) },
                     aoNavegarParaMural = { controladorNavegacao.navigate(DestinoNavegacao.Mural.rota) },
                     aoNavegarParaAutomacao = { controladorNavegacao.navigate(DestinoNavegacao.Automacao.rota) },
-                    aoNavegarParaCompras = { controladorNavegacao.navigate(DestinoNavegacao.Compras.rota) }
+                    aoNavegarParaCompras = { controladorNavegacao.navigate(DestinoNavegacao.Compras.rota) },
+                    aoNavegarParaContatos = { controladorNavegacao.navigate(DestinoNavegacao.Contatos.rota) }
                 )
+            }
+
+            composable(DestinoNavegacao.Contatos.rota) {
+                val viewModel: ContatosViewModel = viewModel()
+                TelaContatos(viewModel = viewModel, aoVoltar = { controladorNavegacao.popBackStack() })
             }
 
             composable(DestinoNavegacao.Eventos.rota) {

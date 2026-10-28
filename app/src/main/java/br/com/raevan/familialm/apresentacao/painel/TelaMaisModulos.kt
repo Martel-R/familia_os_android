@@ -21,7 +21,8 @@ fun TelaMaisModulos(
     aoNavegarParaInventario: () -> Unit,
     aoNavegarParaMural: () -> Unit,
     aoNavegarParaAutomacao: () -> Unit,
-    aoNavegarParaCompras: () -> Unit
+    aoNavegarParaCompras: () -> Unit,
+    aoNavegarParaContatos: () -> Unit
 ) {
     Scaffold(
         topBar = {
@@ -99,6 +100,16 @@ fun TelaMaisModulos(
                     icone = Icons.AutoMirrored.Filled.ReceiptLong,
                     corDestaque = CorCompras,
                     aoClicar = aoNavegarParaCompras
+                )
+            }
+
+            item {
+                CartaoItemModulo(
+                    titulo = "Agenda de Contatos & Apoio",
+                    subtitulo = "Telefones da família, emergência e sincronização da agenda",
+                    icone = Icons.Default.Call,
+                    corDestaque = CorContatos,
+                    aoClicar = aoNavegarParaContatos
                 )
             }
 

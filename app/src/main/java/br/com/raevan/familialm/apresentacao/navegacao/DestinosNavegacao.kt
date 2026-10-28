@@ -20,6 +20,7 @@ sealed class DestinoNavegacao(
     object Mural : DestinoNavegacao("mural", "Mural", Icons.Default.EmojiEvents)
     object Automacao : DestinoNavegacao("automacao", "Automação", Icons.Default.Sensors)
     object Compras : DestinoNavegacao("compras", "Compras", Icons.AutoMirrored.Filled.ReceiptLong)
+    object Contatos : DestinoNavegacao("contatos", "Contatos", Icons.Default.Call)
     object MaisModulos : DestinoNavegacao("mais_modulos", "Mais", Icons.Default.Widgets)
 
     companion object {

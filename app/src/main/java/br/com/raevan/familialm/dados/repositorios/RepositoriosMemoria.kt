@@ -387,6 +387,48 @@ class RepositorioInventarioMemoria : RepositorioInventario {
     override fun listarContatos(): Flow<List<ContatoAgenda>> = estadoContatos.asStateFlow()
 
     override fun listarHistoricoManutencoes(): Flow<List<HistoricoManutencao>> = estadoManutencoes.asStateFlow()
+
+    override suspend fun sincronizarContatos(contatos: List<ContatoAgenda>): Int = withContext(Dispatchers.IO) {
+        try {
+            val url = java.net.URL("https://api-supabase.martel.page/rest/v1/agenda_contatos?on_conflict=telefone")
+            val conexao = url.openConnection() as java.net.HttpURLConnection
+            conexao.requestMethod = "POST"
+            conexao.setRequestProperty("apikey", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0")
+            conexao.setRequestProperty("Authorization", "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0")
+            conexao.setRequestProperty("Content-Type", "application/json")
+            conexao.setRequestProperty("Prefer", "resolution=merge-duplicates")
+            conexao.doOutput = true
+
+            val jsonArray = StringBuilder("[")
+            contatos.forEachIndexed { index, c ->
+                val nomeEscapado = c.nome.replace("\"", "\\\"")
+                val telEscapado = c.telefone.replace("\"", "\\\"")
+                val espEscapado = (c.especialidade ?: "Contato do Celular").replace("\"", "\\\"")
+                jsonArray.append("""{"nome":"$nomeEscapado","telefone":"$telEscapado","especialidade":"$espEscapado","eh_emergencia":${c.ehEmergencia},"origem":"agenda_telefone"}""")
+                if (index < contatos.size - 1) jsonArray.append(",")
+            }
+            jsonArray.append("]")
+
+            conexao.outputStream.use { os ->
+                os.write(jsonArray.toString().toByteArray(Charsets.UTF_8))
+            }
+
+            val codigo = conexao.responseCode
+            estadoContatos.update { atuais ->
+                val mapa = atuais.associateBy { it.telefone }.toMutableMap()
+                contatos.forEach { c -> mapa[c.telefone] = c }
+                mapa.values.toList()
+            }
+            contatos.size
+        } catch (e: Exception) {
+            estadoContatos.update { atuais ->
+                val mapa = atuais.associateBy { it.telefone }.toMutableMap()
+                contatos.forEach { c -> mapa[c.telefone] = c }
+                mapa.values.toList()
+            }
+            contatos.size
+        }
+    }
 }
 
 class RepositorioMuralMemoria : RepositorioMural {
