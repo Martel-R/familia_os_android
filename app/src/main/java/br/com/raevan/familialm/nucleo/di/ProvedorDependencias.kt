@@ -5,42 +5,42 @@ import br.com.raevan.familialm.dominio.repositorios.*
 
 object ProvedorDependencias {
     val repositorioUsuarios: RepositorioUsuarios by lazy {
-        RepositorioUsuariosMemoria()
+        RepositorioUsuariosSupabase()
     }
 
     val repositorioFinancas: RepositorioFinancas by lazy {
-        RepositorioFinancasMemoria()
+        RepositorioFinancasSupabase()
     }
 
     val repositorioEventos: RepositorioEventos by lazy {
-        RepositorioEventosMemoria()
+        RepositorioEventosSupabase()
     }
 
     val repositorioCofre: RepositorioCofre by lazy {
-        RepositorioCofreMemoria()
+        RepositorioCofreSupabase()
     }
 
     val repositorioRotinas: RepositorioRotinas by lazy {
-        RepositorioRotinasMemoria(repositorioUsuarios)
+        RepositorioRotinasSupabase(repositorioUsuarios)
     }
 
     val repositorioSaude: RepositorioSaude by lazy {
-        RepositorioSaudeMemoria()
+        RepositorioSaudeSupabase()
     }
 
     val repositorioInventario: RepositorioInventario by lazy {
-        RepositorioInventarioMemoria()
+        RepositorioInventarioSupabase()
     }
 
     val repositorioMural: RepositorioMural by lazy {
-        RepositorioMuralMemoria()
+        RepositorioMuralSupabase()
     }
 
     val repositorioAutomacao: RepositorioAutomacao by lazy {
-        RepositorioAutomacaoMemoria()
+        RepositorioAutomacaoMemoria() // Módulo local/Frigate
     }
 
     val repositorioCompras: RepositorioCompras by lazy {
-        RepositorioComprasMemoria()
+        RepositorioComprasSupabase()
     }
 }
