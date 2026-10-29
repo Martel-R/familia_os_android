@@ -438,6 +438,19 @@ fun TelaSaude(
                                 if (!ficha.numeroPlanoSaude.isNullOrBlank()) {
                                     Text(text = "🏥 Plano: ${ficha.numeroPlanoSaude}", fontSize = 11.sp)
                                 }
+                                if (!ficha.carteirinhaPlanoUrl.isNullOrBlank()) {
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "💳 Ver Carteirinha do Convênio",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 11.sp,
+                                        color = AzulPrimario,
+                                        modifier = Modifier.clickable {
+                                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(ficha.carteirinhaPlanoUrl))
+                                            contexto.startActivity(intent)
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
@@ -585,6 +598,23 @@ fun ItemCardFichaMedica(ficha: FichaMedica) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+
+            if (!ficha.carteirinhaPlanoUrl.isNullOrBlank()) {
+                val contexto = LocalContext.current
+                Spacer(modifier = Modifier.height(10.dp))
+                OutlinedButton(
+                    onClick = {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(ficha.carteirinhaPlanoUrl))
+                        contexto.startActivity(intent)
+                    },
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.CreditCard, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Ver Carteirinha do Convênio", fontSize = 12.sp)
+                }
+            }
         }
     }
 }
@@ -709,64 +739,101 @@ fun ItemCardConsultaExame(
     aoEditar: (ConsultaExameRegistro) -> Unit,
     aoExcluir: () -> Unit
 ) {
+    var expandido by remember { mutableStateOf(false) }
+
     Card(
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { expandido = !expandido }
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(14.dp)
-                .clickable { aoAlternar() },
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Checkbox(
-                checked = consulta.concluido,
-                onCheckedChange = { aoAlternar() },
-                colors = CheckboxDefaults.colors(checkedColor = VerdeEsmeralda)
-            )
-            Spacer(modifier = Modifier.width(10.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Surface(
-                        shape = RoundedCornerShape(4.dp),
-                        color = if (consulta.tipo == "consulta") AzulPrimarioClaro else Color(0xFFE8F5E9)
-                    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Checkbox(
+                    checked = consulta.concluido,
+                    onCheckedChange = { aoAlternar() },
+                    colors = CheckboxDefaults.colors(checkedColor = VerdeEsmeralda)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = if (consulta.tipo == "consulta") AzulPrimarioClaro else Color(0xFFE8F5E9)
+                        ) {
+                            Text(
+                                text = if (consulta.tipo == "consulta") "Consulta" else "Exame",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (consulta.tipo == "consulta") AzulPrimario else VerdeEsmeralda,
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                            )
+                        }
                         Text(
-                            text = if (consulta.tipo == "consulta") "Consulta" else "Exame",
-                            fontSize = 10.sp,
+                            text = consulta.titulo,
                             fontWeight = FontWeight.Bold,
-                            color = if (consulta.tipo == "consulta") AzulPrimario else VerdeEsmeralda,
-                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                            fontSize = 14.sp
                         )
                     }
+
+                    Spacer(modifier = Modifier.height(3.dp))
                     Text(
-                        text = consulta.titulo,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp
+                        text = "${consulta.nomeMembro} • ${consulta.especialistaOuClinica ?: "Clínica Geral"}",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "Data: ${consulta.dataAgendada.replace("T", " às ").substring(0, minOf(19, consulta.dataAgendada.length))}",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
 
-                Spacer(modifier = Modifier.height(3.dp))
-                Text(
-                    text = "${consulta.nomeMembro} • ${consulta.especialistaOuClinica ?: "Clínica Geral"}",
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = "Data: ${consulta.dataAgendada.replace("T", " às ").substring(0, minOf(19, consulta.dataAgendada.length))}",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.primary
-                )
+                IconButton(onClick = { aoEditar(consulta) }) {
+                    Icon(Icons.Default.Edit, contentDescription = "Editar", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                IconButton(onClick = { aoExcluir() }) {
+                    Icon(Icons.Default.Delete, contentDescription = "Excluir", modifier = Modifier.size(18.dp), tint = VermelhoAlerta)
+                }
             }
 
-            IconButton(onClick = { aoEditar(consulta) }) {
-                Icon(Icons.Default.Edit, contentDescription = "Editar", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            IconButton(onClick = { aoExcluir() }) {
-                Icon(Icons.Default.Delete, contentDescription = "Excluir", modifier = Modifier.size(18.dp), tint = VermelhoAlerta)
+            if (expandido) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            text = "📝 Parâmetros & Observações Clínicas:",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = consulta.observacoes ?: "Nenhuma observação detalhada registrada.",
+                            fontSize = 12.sp,
+                            lineHeight = 16.sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        if (!consulta.dataRetorno.isNullOrBlank()) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "📅 Data de Retorno: ${consulta.dataRetorno}",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = VerdeEsmeralda
+                            )
+                        }
+                    }
+                }
             }
         }
     }

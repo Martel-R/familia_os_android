@@ -721,7 +721,8 @@ class RepositorioSaudeSupabase : RepositorioSaude {
         tipoSanguineo = tipoSanguineo,
         alergias = alergias,
         medicamentosUsoContinuo = medicamentosUsoContinuo,
-        numeroPlanoSaude = numeroPlanoSaude
+        numeroPlanoSaude = numeroPlanoSaude,
+        carteirinhaPlanoUrl = carteirinhaPlanoUrl
     )
 }
 

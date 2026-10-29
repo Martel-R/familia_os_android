@@ -17,7 +17,8 @@ data class FichaMedica(
     val alergias: String? = null,
     val medicamentosUsoContinuo: String? = null,
     val numeroPlanoSaude: String? = null,
-    val contatoEmergencia: String? = null
+    val contatoEmergencia: String? = null,
+    val carteirinhaPlanoUrl: String? = null
 )
 
 data class MedicamentoLembrete(
