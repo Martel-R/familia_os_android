@@ -76,7 +76,10 @@ class WidgetCheckinHumorProvider : AppWidgetProvider() {
 
                 if (userId.isNullOrBlank()) {
                     val usuarios = try {
-                        ClienteSupabase.client.from("usuarios").select { limit(1) }.decodeList<UsuarioDto>()
+                        ClienteSupabase.client.from("usuarios").select {
+                            filter { eq("ativo", true) }
+                            limit(1)
+                        }.decodeList<UsuarioDto>()
                     } catch (_: Exception) {
                         emptyList<UsuarioDto>()
                     }
