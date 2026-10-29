@@ -33,6 +33,7 @@ fun TelaSaude(
     val estado by viewModel.estado.collectAsState()
     var humorSelecionado by remember { mutableStateOf(5) }
     var notaDiarioTexto by remember { mutableStateOf("") }
+    var consultaEditando by remember { mutableStateOf<ConsultaExameRegistro?>(null) }
     val contexto = LocalContext.current
 
     Scaffold(
@@ -234,7 +235,9 @@ fun TelaSaude(
                         items(estado.consultas) { consulta ->
                             ItemCardConsultaExame(
                                 consulta = consulta,
-                                aoAlternar = { viewModel.alternarConsultaConcluida(consulta.id) }
+                                aoAlternar = { viewModel.alternarConsultaConcluida(consulta.id) },
+                                aoEditar = { consultaEditando = it },
+                                aoExcluir = { viewModel.excluirConsultaExame(consulta.id) }
                             )
                         }
                     }
@@ -447,6 +450,66 @@ fun TelaSaude(
             }
         )
     }
+
+    if (consultaEditando != null) {
+        val consulta = consultaEditando!!
+        var tituloEdit by remember(consulta) { mutableStateOf(consulta.titulo) }
+        var clinicaEdit by remember(consulta) { mutableStateOf(consulta.especialistaOuClinica ?: "") }
+        var obsEdit by remember(consulta) { mutableStateOf(consulta.observacoes ?: "") }
+
+        AlertDialog(
+            onDismissRequest = { consultaEditando = null },
+            title = {
+                Text(
+                    text = "Alterar ${if (consulta.tipo == "consulta") "Consulta" else "Exame"}",
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = tituloEdit,
+                        onValueChange = { tituloEdit = it },
+                        label = { Text("Título / Especialidade") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = clinicaEdit,
+                        onValueChange = { clinicaEdit = it },
+                        label = { Text("Médico ou Clínica") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = obsEdit,
+                        onValueChange = { obsEdit = it },
+                        label = { Text("Observações / Laudo") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.atualizarConsultaExame(
+                            consulta.copy(
+                                titulo = tituloEdit,
+                                especialistaOuClinica = clinicaEdit.ifBlank { null },
+                                observacoes = obsEdit.ifBlank { null }
+                            )
+                        )
+                        consultaEditando = null
+                    }
+                ) {
+                    Text("Salvar")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { consultaEditando = null }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
 }
 
 @Composable
@@ -642,7 +705,9 @@ fun ItemCardVacina(vacina: VacinaRegistro) {
 @Composable
 fun ItemCardConsultaExame(
     consulta: ConsultaExameRegistro,
-    aoAlternar: () -> Unit
+    aoAlternar: () -> Unit,
+    aoEditar: (ConsultaExameRegistro) -> Unit,
+    aoExcluir: () -> Unit
 ) {
     Card(
         shape = RoundedCornerShape(12.dp),
@@ -695,6 +760,13 @@ fun ItemCardConsultaExame(
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.primary
                 )
+            }
+
+            IconButton(onClick = { aoEditar(consulta) }) {
+                Icon(Icons.Default.Edit, contentDescription = "Editar", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            IconButton(onClick = { aoExcluir() }) {
+                Icon(Icons.Default.Delete, contentDescription = "Excluir", modifier = Modifier.size(18.dp), tint = VermelhoAlerta)
             }
         }
     }

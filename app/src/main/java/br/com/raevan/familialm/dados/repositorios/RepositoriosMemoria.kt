@@ -364,9 +364,21 @@ class RepositorioSaudeMemoria : RepositorioSaude {
         estadoConsultas.update { listOf(consulta) + it }
     }
 
+    override suspend fun atualizarConsultaExame(consulta: ConsultaExameRegistro) = withContext(Dispatchers.IO) {
+        estadoConsultas.update { lista ->
+            lista.map { if (it.id == consulta.id) consulta else it }
+        }
+    }
+
     override suspend fun alternarConsultaConcluida(id: String) = withContext(Dispatchers.IO) {
         estadoConsultas.update { lista ->
             lista.map { if (it.id == id) it.copy(concluido = !it.concluido) else it }
+        }
+    }
+
+    override suspend fun excluirConsultaExame(id: String) = withContext(Dispatchers.IO) {
+        estadoConsultas.update { lista ->
+            lista.filter { it.id != id }
         }
     }
 

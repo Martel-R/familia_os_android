@@ -50,7 +50,9 @@ interface RepositorioSaude {
     suspend fun alternarMedicamentoTomado(medicamentoId: String)
     suspend fun adicionarVacina(vacina: VacinaRegistro)
     suspend fun adicionarConsultaExame(consulta: ConsultaExameRegistro)
+    suspend fun atualizarConsultaExame(consulta: ConsultaExameRegistro)
     suspend fun alternarConsultaConcluida(id: String)
+    suspend fun excluirConsultaExame(id: String)
     suspend fun adicionarMetricaVital(metrica: MetricaVitalRegistro)
 }
 

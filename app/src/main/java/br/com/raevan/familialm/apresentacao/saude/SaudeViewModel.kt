@@ -83,6 +83,20 @@ class SaudeViewModel : ViewModel() {
         }
     }
 
+    fun atualizarConsultaExame(consulta: ConsultaExameRegistro) {
+        viewModelScope.launch {
+            repositorioSaude.atualizarConsultaExame(consulta)
+            _estado.update { it.copy(mensagemSucesso = "Agendamento atualizado com sucesso!") }
+        }
+    }
+
+    fun excluirConsultaExame(id: String) {
+        viewModelScope.launch {
+            repositorioSaude.excluirConsultaExame(id)
+            _estado.update { it.copy(mensagemSucesso = "Agendamento excluído com sucesso!") }
+        }
+    }
+
     fun registrarCheckin(nivelHumor: Int, notaDiario: String) {
         val usuario = estado.value.usuarioLogado ?: return
         viewModelScope.launch {

@@ -666,6 +666,31 @@ class RepositorioSaudeSupabase : RepositorioSaude {
         Unit
     }
 
+    override suspend fun atualizarConsultaExame(consulta: ConsultaExameRegistro) = withContext(Dispatchers.IO) {
+        val dto = ConsultaExameDto(
+            id = consulta.id,
+            usuarioId = consulta.usuarioId,
+            tipo = consulta.tipo,
+            titulo = consulta.titulo,
+            especialistaOuClinica = consulta.especialistaOuClinica,
+            dataAgendada = consulta.dataAgendada,
+            dataRetorno = consulta.dataRetorno,
+            observacoes = consulta.observacoes,
+            concluido = consulta.concluido
+        )
+        ClienteSupabase.client.from("saude_consultas_exames").update(dto) {
+            filter { eq("id", consulta.id) }
+        }
+        Unit
+    }
+
+    override suspend fun excluirConsultaExame(id: String) = withContext(Dispatchers.IO) {
+        ClienteSupabase.client.from("saude_consultas_exames").delete {
+            filter { eq("id", id) }
+        }
+        Unit
+    }
+
     override suspend fun adicionarMetricaVital(metrica: MetricaVitalRegistro) = withContext(Dispatchers.IO) {
         val dto = MetricaVitalDto(
             id = metrica.id.ifBlank { UUID.randomUUID().toString() },
