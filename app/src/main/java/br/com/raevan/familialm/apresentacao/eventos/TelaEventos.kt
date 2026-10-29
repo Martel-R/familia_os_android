@@ -1,5 +1,8 @@
 package br.com.raevan.familialm.apresentacao.eventos
 
+import android.content.Intent
+import android.provider.CalendarContract
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -135,6 +138,22 @@ fun TelaEventos(
                                     fontWeight = FontWeight.Bold,
                                     color = VerdeEsmeralda
                                 )
+                            }
+                            Spacer(modifier = Modifier.height(10.dp))
+                            val contexto = LocalContext.current
+                            OutlinedButton(
+                                onClick = {
+                                    val intent = Intent(Intent.ACTION_INSERT).apply {
+                                        data = CalendarContract.Events.CONTENT_URI
+                                        putExtra(CalendarContract.Events.TITLE, eventoAtivo.nome)
+                                        putExtra(CalendarContract.Events.DESCRIPTION, eventoAtivo.descricao ?: "Evento do Familia OS")
+                                    }
+                                    contexto.startActivity(intent)
+                                },
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("📅 Adicionar à Google Agenda", fontSize = 12.sp)
                             }
                         }
                     }
