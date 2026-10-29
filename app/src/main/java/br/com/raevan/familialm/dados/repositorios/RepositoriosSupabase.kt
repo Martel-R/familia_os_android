@@ -442,7 +442,10 @@ class RepositorioInventarioSupabase : RepositorioInventario {
             ContatoDto(
                 id = it.id.ifBlank { UUID.randomUUID().toString() },
                 nome = it.nome,
+                categoria = it.categoria,
                 especialidade = it.especialidade,
+                membroId = it.membroId,
+                grauParentesco = it.grauParentesco,
                 telefone = it.telefone,
                 email = it.email,
                 ehEmergencia = it.ehEmergencia,
@@ -470,7 +473,10 @@ class RepositorioInventarioSupabase : RepositorioInventario {
     private fun ContatoDto.paraDominio() = ContatoAgenda(
         id = id,
         nome = nome,
+        categoria = categoria ?: "amigos",
         especialidade = especialidade,
+        membroId = membroId,
+        grauParentesco = grauParentesco,
         telefone = telefone,
         email = email,
         ehEmergencia = ehEmergencia,

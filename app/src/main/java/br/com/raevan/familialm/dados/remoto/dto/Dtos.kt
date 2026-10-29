@@ -110,7 +110,10 @@ data class CotacaoDto(
 data class ContatoDto(
     val id: String,
     val nome: String,
+    val categoria: String? = "amigos",
     val especialidade: String? = null,
+    @SerialName("membro_id") val membroId: String? = null,
+    @SerialName("grau_parentesco") val grauParentesco: String? = null,
     val telefone: String,
     val email: String? = null,
     @SerialName("foto_uri") val fotoUri: String? = null,

@@ -8,7 +8,10 @@ data class ContatoAgenda(
     val ehEmergencia: Boolean = false,
     val observacoes: String? = null,
     val email: String? = null,
-    val selecionado: Boolean = false
+    val selecionado: Boolean = false,
+    val categoria: String = "amigos",
+    val membroId: String? = null,
+    val grauParentesco: String? = null
 )
 
 data class ItemInventario(
