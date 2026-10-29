@@ -16,8 +16,10 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import br.com.raevan.familialm.apresentacao.login.LoginViewModel
+import br.com.raevan.familialm.apresentacao.login.TelaDesbloqueioBiometrico
 import br.com.raevan.familialm.apresentacao.login.TelaLogin
 import br.com.raevan.familialm.dados.rede.ClienteSupabase
+import br.com.raevan.familialm.dados.sessao.GerenciadorSessao
 import io.github.jan.supabase.auth.auth
 import br.com.raevan.familialm.apresentacao.automacao.AutomacaoViewModel
 import br.com.raevan.familialm.apresentacao.automacao.TelaAutomacaoSeguranca
@@ -51,13 +53,19 @@ fun EstruturaNavegacaoPrincipal() {
     val rotaAtual = entradaPilhaAtual?.destination?.route
 
     val loginViewModel: LoginViewModel = viewModel()
-    val sessaoExiste = remember { ClienteSupabase.client.auth.currentSessionOrNull() != null }
-    val rotaInicial = if (sessaoExiste) DestinoNavegacao.Painel.rota else DestinoNavegacao.Login.rota
+    val sessaoExiste = remember {
+        try {
+            GerenciadorSessao.obterInstancia().temSessaoSalva() || ClienteSupabase.client.auth.currentSessionOrNull() != null
+        } catch (_: Exception) {
+            false
+        }
+    }
+    val rotaInicial = if (sessaoExiste) DestinoNavegacao.DesbloqueioBiometrico.rota else DestinoNavegacao.Login.rota
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         bottomBar = {
-            if (rotaAtual != DestinoNavegacao.Login.rota) {
+            if (rotaAtual != DestinoNavegacao.Login.rota && rotaAtual != DestinoNavegacao.DesbloqueioBiometrico.rota) {
                 NavigationBar(
                     containerColor = MaterialTheme.colorScheme.surface,
                     tonalElevation = NavigationBarDefaults.Elevation
@@ -106,6 +114,21 @@ fun EstruturaNavegacaoPrincipal() {
             startDestination = rotaInicial,
             modifier = Modifier.padding(preenchimento)
         ) {
+            composable(DestinoNavegacao.DesbloqueioBiometrico.rota) {
+                TelaDesbloqueioBiometrico(
+                    aoDesbloquearComSucesso = {
+                        controladorNavegacao.navigate(DestinoNavegacao.Painel.rota) {
+                            popUpTo(DestinoNavegacao.DesbloqueioBiometrico.rota) { inclusive = true }
+                        }
+                    },
+                    aoEntrarComSenha = {
+                        controladorNavegacao.navigate(DestinoNavegacao.Login.rota) {
+                            popUpTo(DestinoNavegacao.DesbloqueioBiometrico.rota) { inclusive = true }
+                        }
+                    }
+                )
+            }
+
             composable(DestinoNavegacao.Login.rota) {
                 TelaLogin(
                     viewModel = loginViewModel,

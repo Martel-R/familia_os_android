@@ -3,6 +3,7 @@ package br.com.raevan.familialm.apresentacao.login
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import br.com.raevan.familialm.dados.rede.ClienteSupabase
+import br.com.raevan.familialm.dados.sessao.GerenciadorSessao
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.builtin.Email
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,7 +28,8 @@ class LoginViewModel : ViewModel() {
 
     fun verificarSessao() {
         val sessao = ClienteSupabase.client.auth.currentSessionOrNull()
-        _usuarioAutenticado.value = (sessao != null)
+        val temSessaoSalva = try { GerenciadorSessao.obterInstancia().temSessaoSalva() } catch (_: Exception) { false }
+        _usuarioAutenticado.value = (sessao != null || temSessaoSalva)
     }
 
     fun fazerLogin(emailDigitado: String, senhaDigitada: String) {
@@ -44,6 +46,10 @@ class LoginViewModel : ViewModel() {
                     email = emailDigitado.trim()
                     password = senhaDigitada
                 }
+                try {
+                    GerenciadorSessao.obterInstancia().salvarUltimoEmail(emailDigitado)
+                } catch (_: Exception) {}
+
                 _usuarioAutenticado.value = true
             } catch (e: Exception) {
                 _mensagemErro.value = "Falha no login: credenciais inválidas ou sem conexão."
@@ -57,6 +63,9 @@ class LoginViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 ClienteSupabase.client.auth.signOut()
+            } catch (_: Exception) {}
+            try {
+                GerenciadorSessao.obterInstancia().deleteSession()
             } catch (_: Exception) {}
             _usuarioAutenticado.value = false
         }

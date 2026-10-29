@@ -11,6 +11,7 @@ sealed class DestinoNavegacao(
     val icone: ImageVector
 ) {
     object Login : DestinoNavegacao("login", "Login", Icons.Default.Lock)
+    object DesbloqueioBiometrico : DestinoNavegacao("desbloqueio_biometrico", "Desbloqueio", Icons.Default.Fingerprint)
     object Painel : DestinoNavegacao("painel", "Início", Icons.Default.Home)
     object Financas : DestinoNavegacao("financas", "Finanças", Icons.Default.AccountBalanceWallet)
     object Rotinas : DestinoNavegacao("rotinas", "Rotinas", Icons.Default.Checklist)
