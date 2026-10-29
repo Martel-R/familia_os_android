@@ -159,7 +159,9 @@ data class FichaMedicaDto(
     val alergias: String? = null,
     @SerialName("medicamentos_uso_continuo") val medicamentosUsoContinuo: String? = null,
     @SerialName("numero_plano_saude") val numeroPlanoSaude: String? = null,
-    @SerialName("carteirinha_plano_url") val carteirinhaPlanoUrl: String? = null
+    @SerialName("carteirinha_plano_url") val carteirinhaPlanoUrl: String? = null,
+    @SerialName("numero_plano_odontologico") val numeroPlanoOdontologico: String? = null,
+    @SerialName("carteirinha_odonto_url") val carteirinhaOdontoUrl: String? = null
 )
 
 @Serializable

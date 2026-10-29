@@ -436,17 +436,33 @@ fun TelaSaude(
                                     Text(text = "⚠️ Alergias: ${ficha.alergias}", fontSize = 11.sp, color = LaranjaAcolhedor)
                                 }
                                 if (!ficha.numeroPlanoSaude.isNullOrBlank()) {
-                                    Text(text = "🏥 Plano: ${ficha.numeroPlanoSaude}", fontSize = 11.sp)
+                                    Text(text = "🏥 Plano Saúde: ${ficha.numeroPlanoSaude}", fontSize = 11.sp)
+                                }
+                                if (!ficha.numeroPlanoOdontologico.isNullOrBlank()) {
+                                    Text(text = "🦷 Plano Odonto: ${ficha.numeroPlanoOdontologico}", fontSize = 11.sp)
                                 }
                                 if (!ficha.carteirinhaPlanoUrl.isNullOrBlank()) {
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Text(
-                                        text = "💳 Ver Carteirinha do Convênio",
+                                        text = "💳 Ver Carteirinha Saúde",
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 11.sp,
                                         color = AzulPrimario,
                                         modifier = Modifier.clickable {
                                             val intent = Intent(Intent.ACTION_VIEW, Uri.parse(ficha.carteirinhaPlanoUrl))
+                                            contexto.startActivity(intent)
+                                        }
+                                    )
+                                }
+                                if (!ficha.carteirinhaOdontoUrl.isNullOrBlank()) {
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "🦷 Ver Carteirinha Odonto",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 11.sp,
+                                        color = VerdeEsmeralda,
+                                        modifier = Modifier.clickable {
+                                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(ficha.carteirinhaOdontoUrl))
                                             contexto.startActivity(intent)
                                         }
                                     )
