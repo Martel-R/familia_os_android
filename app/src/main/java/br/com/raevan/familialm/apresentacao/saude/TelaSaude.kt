@@ -899,6 +899,21 @@ fun ItemCardConsultaExame(
                         fontWeight = FontWeight.Medium,
                         color = if (!consulta.dataAgendada.isNullOrBlank()) MaterialTheme.colorScheme.primary else Color(0xFFE65100)
                     )
+
+                    if (consulta.tipo == "exame" && !consulta.resultado.isNullOrBlank()) {
+                        val resFormatado = consulta.resultado
+                            .replace(Regex("^Resultados:\\s*", RegexOption.IGNORE_CASE), "")
+                            .replace(Regex("^[•\\-\\s]+"), "")
+                            .trim()
+
+                        Spacer(modifier = Modifier.height(3.dp))
+                        Text(
+                            text = "Resultado: $resFormatado",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = VerdeEsmeralda
+                        )
+                    }
                 }
 
                 IconButton(onClick = { aoEditar(consulta) }) {
@@ -925,12 +940,25 @@ fun ItemCardConsultaExame(
                                 color = MaterialTheme.colorScheme.primary
                             )
                             Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = consulta.resultado ?: "Aguardando liberação de laudo.",
-                                fontSize = 12.sp,
-                                lineHeight = 16.sp,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
+                            val resCompleto = (consulta.resultado ?: "Aguardando liberação de laudo.")
+                                .replace(Regex("^Resultados:\\s*", RegexOption.IGNORE_CASE), "")
+                                .replace(Regex("^[•\\-\\s]+"), "")
+                                .trim()
+
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = VerdeEsmeraldaClaro.copy(alpha = 0.25f),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = resCompleto,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    lineHeight = 16.sp,
+                                    color = VerdeEsmeralda,
+                                    modifier = Modifier.padding(8.dp)
+                                )
+                            }
 
                             if (!consulta.observacoes.isNullOrBlank()) {
                                 Spacer(modifier = Modifier.height(8.dp))
