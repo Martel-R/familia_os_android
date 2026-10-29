@@ -36,6 +36,21 @@
             </intent-filter>
         </receiver>
 
+        <!-- Widget de Check-in de Humor para Tela Inicial -->
+        <receiver
+            android:name=".nucleo.widgets.WidgetCheckinHumorProvider"
+            android:enabled="true"
+            android:exported="true"
+            android:label="@string/widget_humor_nome">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="br.com.raevan.familialm.ACTION_REGISTRAR_HUMOR" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_checkin_humor_info" />
+        </receiver>
+
         <activity
             android:name=".MainActivity"
             android:exported="true"

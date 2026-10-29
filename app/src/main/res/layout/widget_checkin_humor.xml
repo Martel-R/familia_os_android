@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_widget_humor"
+    android:orientation="vertical"
+    android:padding="12dp">
+
+    <!-- Cabeçalho do Widget -->
+    <LinearLayout
+        android:id="@+id/widget_header"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="FamiliaLM • Saúde"
+            android:textColor="#2563EB"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tv_widget_ultima_hora"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textColor="#64748B"
+            android:textSize="10sp" />
+    </LinearLayout>
+
+    <!-- Pergunta / Status -->
+    <TextView
+        android:id="@+id/tv_widget_humor_status"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:layout_marginBottom="8dp"
+        android:text="Como você está hoje?"
+        android:textColor="#0F172A"
+        android:textSize="13sp"
+        android:textStyle="bold" />
+
+    <!-- Barra de Emojis de Humor -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:orientation="horizontal">
+
+        <!-- Nível 1: Muito Mal (😢) -->
+        <TextView
+            android:id="@+id/btn_humor_1"
+            android:layout_width="0dp"
+            android:layout_height="46dp"
+            android:layout_margin="3dp"
+            android:layout_weight="1"
+            android:background="@drawable/bg_emoji_botao"
+            android:gravity="center"
+            android:text="😢"
+            android:textSize="22sp" />
+
+        <!-- Nível 2: Para Baixo (😕) -->
+        <TextView
+            android:id="@+id/btn_humor_2"
+            android:layout_width="0dp"
+            android:layout_height="46dp"
+            android:layout_margin="3dp"
+            android:layout_weight="1"
+            android:background="@drawable/bg_emoji_botao"
+            android:gravity="center"
+            android:text="😕"
+            android:textSize="22sp" />
+
+        <!-- Nível 3: Neutro (😐) -->
+        <TextView
+            android:id="@+id/btn_humor_3"
+            android:layout_width="0dp"
+            android:layout_height="46dp"
+            android:layout_margin="3dp"
+            android:layout_weight="1"
+            android:background="@drawable/bg_emoji_botao"
+            android:gravity="center"
+            android:text="😐"
+            android:textSize="22sp" />
+
+        <!-- Nível 4: Bem (🙂) -->
+        <TextView
+            android:id="@+id/btn_humor_4"
+            android:layout_width="0dp"
+            android:layout_height="46dp"
+            android:layout_margin="3dp"
+            android:layout_weight="1"
+            android:background="@drawable/bg_emoji_botao"
+            android:gravity="center"
+            android:text="🙂"
+            android:textSize="22sp" />
+
+        <!-- Nível 5: Excelente (😄) -->
+        <TextView
+            android:id="@+id/btn_humor_5"
+            android:layout_width="0dp"
+            android:layout_height="46dp"
+            android:layout_margin="3dp"
+            android:layout_weight="1"
+            android:background="@drawable/bg_emoji_botao"
+            android:gravity="center"
+            android:text="😄"
+            android:textSize="22sp" />
+    </LinearLayout>
+
+    <!-- Rodapé: Atalho para abrir Saúde -->
+    <TextView
+        android:id="@+id/tv_widget_abrir_app"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:gravity="center"
+        android:text="Ver histórico completo no app →"
+        android:textColor="#64748B"
+        android:textSize="10sp" />
+
+</LinearLayout>

@@ -2,4 +2,7 @@
     <string name="app_name">Familia LM</string>
     <string name="google_web_client_id">849376936842-f0hnji6h9bbdo3jdd36t07msk7fe1tg3.apps.googleusercontent.com</string>
     <string name="google_android_client_id">849376936842-jmt25d9rtm28vai6i7sdlfpqmuupq3nk.apps.googleusercontent.com</string>
+    <string name="widget_humor_nome">Check-in de Humor</string>
+    <string name="widget_humor_descricao">Registre seu humor diário rapidamente na tela inicial</string>
+    <string name="como_esta_hoje">Como você está se sentindo hoje?</string>
 </resources>
