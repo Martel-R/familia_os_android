@@ -161,7 +161,10 @@ data class FichaMedicaDto(
     @SerialName("numero_plano_saude") val numeroPlanoSaude: String? = null,
     @SerialName("carteirinha_plano_url") val carteirinhaPlanoUrl: String? = null,
     @SerialName("numero_plano_odontologico") val numeroPlanoOdontologico: String? = null,
-    @SerialName("carteirinha_odonto_url") val carteirinhaOdontoUrl: String? = null
+    @SerialName("carteirinha_odonto_url") val carteirinhaOdontoUrl: String? = null,
+    @SerialName("resumo_clinico_ia") val resumoClinicoIa: String? = null,
+    @SerialName("orientacoes_medico_ia") val orientacoesMedicoIa: String? = null,
+    @SerialName("atualizado_ia_em") val atualizadoIaEm: String? = null
 )
 
 @Serializable

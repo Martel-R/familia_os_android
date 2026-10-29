@@ -609,14 +609,22 @@ fun ItemCardFichaMedica(ficha: FichaMedica) {
 
             if (!ficha.numeroPlanoSaude.isNullOrBlank()) {
                 Text(
-                    text = "Plano: ${ficha.numeroPlanoSaude}",
+                    text = "Plano Saúde: ${ficha.numeroPlanoSaude}",
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
+            if (!ficha.numeroPlanoOdontologico.isNullOrBlank()) {
+                Text(
+                    text = "Plano Odonto: ${ficha.numeroPlanoOdontologico}",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            val contexto = LocalContext.current
             if (!ficha.carteirinhaPlanoUrl.isNullOrBlank()) {
-                val contexto = LocalContext.current
                 Spacer(modifier = Modifier.height(10.dp))
                 OutlinedButton(
                     onClick = {
@@ -628,7 +636,60 @@ fun ItemCardFichaMedica(ficha: FichaMedica) {
                 ) {
                     Icon(Icons.Default.CreditCard, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Ver Carteirinha do Convênio", fontSize = 12.sp)
+                    Text("Ver Carteirinha de Saúde", fontSize = 12.sp)
+                }
+            }
+
+            if (!ficha.carteirinhaOdontoUrl.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(6.dp))
+                OutlinedButton(
+                    onClick = {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(ficha.carteirinhaOdontoUrl))
+                        contexto.startActivity(intent)
+                    },
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.CreditCard, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Ver Carteirinha Odonto", fontSize = 12.sp)
+                }
+            }
+
+            if (!ficha.resumoClinicoIa.isNullOrBlank() || !ficha.orientacoesMedicoIa.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(10.dp)) {
+                        Text(
+                            text = "🧠 Parecer da IA & Guia para a Consulta Médica",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        if (!ficha.resumoClinicoIa.isNullOrBlank()) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "🩺 Resumo Clínico: ${ficha.resumoClinicoIa}",
+                                fontSize = 11.sp,
+                                lineHeight = 15.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                        if (!ficha.orientacoesMedicoIa.isNullOrBlank()) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "💬 O que conversar com o Médico (Seu Norte):\n${ficha.orientacoesMedicoIa}",
+                                fontSize = 11.sp,
+                                lineHeight = 15.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
                 }
             }
         }

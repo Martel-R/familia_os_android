@@ -724,7 +724,10 @@ class RepositorioSaudeSupabase : RepositorioSaude {
         numeroPlanoSaude = numeroPlanoSaude,
         carteirinhaPlanoUrl = carteirinhaPlanoUrl,
         numeroPlanoOdontologico = numeroPlanoOdontologico,
-        carteirinhaOdontoUrl = carteirinhaOdontoUrl
+        carteirinhaOdontoUrl = carteirinhaOdontoUrl,
+        resumoClinicoIa = resumoClinicoIa,
+        orientacoesMedicoIa = orientacoesMedicoIa,
+        atualizadoIaEm = atualizadoIaEm
     )
 }
 

@@ -20,7 +20,10 @@ data class FichaMedica(
     val contatoEmergencia: String? = null,
     val carteirinhaPlanoUrl: String? = null,
     val numeroPlanoOdontologico: String? = null,
-    val carteirinhaOdontoUrl: String? = null
+    val carteirinhaOdontoUrl: String? = null,
+    val resumoClinicoIa: String? = null,
+    val orientacoesMedicoIa: String? = null,
+    val atualizadoIaEm: String? = null
 )
 
 data class MedicamentoLembrete(
