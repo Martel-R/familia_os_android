@@ -54,9 +54,13 @@ data class ConsultaExameRegistro(
     val tipo: String, // "consulta" ou "exame"
     val titulo: String,
     val especialistaOuClinica: String? = null,
-    val dataAgendada: String,
+    val dataAgendada: String? = null,
     val dataRetorno: String? = null,
     val observacoes: String? = null,
+    val resultado: String? = null,
+    val status: String = "agendado",
+    val contatoId: String? = null,
+    val eventoId: String? = null,
     val concluido: Boolean = false
 )
 

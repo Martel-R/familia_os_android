@@ -198,9 +198,13 @@ data class ConsultaExameDto(
     val tipo: String,
     val titulo: String,
     @SerialName("especialista_ou_clinica") val especialistaOuClinica: String? = null,
-    @SerialName("data_agendada") val dataAgendada: String,
+    @SerialName("data_agendada") val dataAgendada: String? = null,
     @SerialName("data_retorno") val dataRetorno: String? = null,
     val observacoes: String? = null,
+    val resultado: String? = null,
+    val status: String? = "agendado",
+    @SerialName("contato_id") val contatoId: String? = null,
+    @SerialName("evento_id") val eventoId: String? = null,
     val concluido: Boolean = false
 )
 

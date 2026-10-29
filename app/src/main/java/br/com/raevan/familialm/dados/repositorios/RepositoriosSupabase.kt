@@ -593,6 +593,10 @@ class RepositorioSaudeSupabase : RepositorioSaude {
                 dataAgendada = dto.dataAgendada,
                 dataRetorno = dto.dataRetorno,
                 observacoes = dto.observacoes,
+                resultado = dto.resultado,
+                status = dto.status ?: if (dto.concluido) "concluido" else "agendado",
+                contatoId = dto.contatoId,
+                eventoId = dto.eventoId,
                 concluido = dto.concluido
             )
         })
@@ -646,6 +650,10 @@ class RepositorioSaudeSupabase : RepositorioSaude {
             dataAgendada = consulta.dataAgendada,
             dataRetorno = consulta.dataRetorno,
             observacoes = consulta.observacoes,
+            resultado = consulta.resultado,
+            status = consulta.status,
+            contatoId = consulta.contatoId,
+            eventoId = consulta.eventoId,
             concluido = consulta.concluido
         )
         ClienteSupabase.client.from("saude_consultas_exames").insert(dto)
@@ -658,8 +666,13 @@ class RepositorioSaudeSupabase : RepositorioSaude {
             .decodeSingleOrNull<ConsultaExameDto>()
 
         if (atual != null) {
+            val novoConcluido = !atual.concluido
+            val novoStatus = if (novoConcluido) "concluido" else "agendado"
             ClienteSupabase.client.from("saude_consultas_exames")
-                .update({ set("concluido", !atual.concluido) }) {
+                .update({ 
+                    set("concluido", novoConcluido)
+                    set("status", novoStatus)
+                }) {
                     filter { eq("id", id) }
                 }
         }
@@ -676,6 +689,10 @@ class RepositorioSaudeSupabase : RepositorioSaude {
             dataAgendada = consulta.dataAgendada,
             dataRetorno = consulta.dataRetorno,
             observacoes = consulta.observacoes,
+            resultado = consulta.resultado,
+            status = consulta.status,
+            contatoId = consulta.contatoId,
+            eventoId = consulta.eventoId,
             concluido = consulta.concluido
         )
         ClienteSupabase.client.from("saude_consultas_exames").update(dto) {

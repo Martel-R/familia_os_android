@@ -850,6 +850,32 @@ fun ItemCardConsultaExame(
                                 modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
                             )
                         }
+
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = when (consulta.status) {
+                                "concluido" -> Color(0xFFE8F5E9)
+                                "a_agendar" -> Color(0xFFFFF3E0)
+                                else -> AzulPrimarioClaro
+                            }
+                        ) {
+                            Text(
+                                text = when (consulta.status) {
+                                    "concluido" -> "Concluído"
+                                    "a_agendar" -> "A Agendar"
+                                    else -> "Agendado"
+                                },
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = when (consulta.status) {
+                                    "concluido" -> VerdeEsmeralda
+                                    "a_agendar" -> Color(0xFFE65100)
+                                    else -> AzulPrimario
+                                },
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                            )
+                        }
+
                         Text(
                             text = consulta.titulo,
                             fontWeight = FontWeight.Bold,
@@ -864,10 +890,14 @@ fun ItemCardConsultaExame(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = "Data: ${consulta.dataAgendada.replace("T", " às ").substring(0, minOf(19, consulta.dataAgendada.length))}",
+                        text = if (!consulta.dataAgendada.isNullOrBlank()) {
+                            "Data: ${consulta.dataAgendada.replace("T", " às ").substring(0, minOf(19, consulta.dataAgendada.length))}"
+                        } else {
+                            "Data: A Definir"
+                        },
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.primary
+                        color = if (!consulta.dataAgendada.isNullOrBlank()) MaterialTheme.colorScheme.primary else Color(0xFFE65100)
                     )
                 }
 
@@ -887,19 +917,52 @@ fun ItemCardConsultaExame(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
-                        Text(
-                            text = "📝 Parâmetros & Observações Clínicas:",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = consulta.observacoes ?: "Nenhuma observação detalhada registrada.",
-                            fontSize = 12.sp,
-                            lineHeight = 16.sp,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
+                        if (consulta.tipo == "exame") {
+                            Text(
+                                text = "🧪 Resultado do Exame (Laudo / Parâmetros):",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = consulta.resultado ?: "Aguardando liberação de laudo.",
+                                fontSize = 12.sp,
+                                lineHeight = 16.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+
+                            if (!consulta.observacoes.isNullOrBlank()) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "📝 Instruções de Preparo / Observações:",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = consulta.observacoes,
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        } else {
+                            Text(
+                                text = "🩺 Observações Médicas / Conduta da Consulta:",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = consulta.observacoes ?: "Nenhuma conduta ou recomendação registrada.",
+                                fontSize = 12.sp,
+                                lineHeight = 16.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+
                         if (!consulta.dataRetorno.isNullOrBlank()) {
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
