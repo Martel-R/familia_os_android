@@ -162,6 +162,17 @@ data class FichaMedicaDto(
 )
 
 @Serializable
+data class MedicamentoDto(
+    val id: String,
+    @SerialName("usuario_id") val usuarioId: String,
+    @SerialName("nome_remedio") val nomeRemedio: String,
+    val dosagem: String,
+    val horario: String,
+    @SerialName("foi_tomado_hoje") val foiTomadoHoje: Boolean = false,
+    @SerialName("criado_em") val criadoEm: String = ""
+)
+
+@Serializable
 data class CredencialCofreDto(
     val id: String,
     val titulo: String,

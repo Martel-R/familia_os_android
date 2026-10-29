@@ -504,8 +504,26 @@ class RepositorioSaudeSupabase : RepositorioSaude {
     }.flowOn(Dispatchers.IO)
 
     override fun listarLembretesMedicamento(): Flow<List<MedicamentoLembrete>> = flow {
-        emit(emptyList()) // Sem tabela de medicamentos no schema remoto por enquanto
-    }
+        val dtos = ClienteSupabase.client.from("saude_medicamentos")
+            .select { order("horario", Order.ASCENDING) }
+            .decodeList<MedicamentoDto>()
+
+        val usuarios = ClienteSupabase.client.from("usuarios")
+            .select()
+            .decodeList<UsuarioDto>()
+            .associateBy { it.id }
+
+        emit(dtos.map { dto ->
+            MedicamentoLembrete(
+                id = dto.id,
+                nomeRemedio = dto.nomeRemedio,
+                dosagem = dto.dosagem,
+                horario = dto.horario,
+                membroFamiliar = usuarios[dto.usuarioId]?.nome ?: "Membro",
+                foiTomadoHoje = dto.foiTomadoHoje
+            )
+        })
+    }.flowOn(Dispatchers.IO)
 
     override suspend fun registrarCheckin(checkin: CheckinSaude) = withContext(Dispatchers.IO) {
         val dto = CheckinSaudeDto(
@@ -518,7 +536,20 @@ class RepositorioSaudeSupabase : RepositorioSaude {
         Unit
     }
 
-    override suspend fun alternarMedicamentoTomado(medicamentoId: String) {}
+    override suspend fun alternarMedicamentoTomado(medicamentoId: String) = withContext(Dispatchers.IO) {
+        val atual = ClienteSupabase.client.from("saude_medicamentos")
+            .select { filter { eq("id", medicamentoId) } }
+            .decodeSingleOrNull<MedicamentoDto>()
+
+        if (atual != null) {
+            val novoStatus = !atual.foiTomadoHoje
+            ClienteSupabase.client.from("saude_medicamentos")
+                .update({ set("foi_tomado_hoje", novoStatus) }) {
+                    filter { eq("id", medicamentoId) }
+                }
+        }
+        Unit
+    }
 
     private fun CheckinSaudeDto.paraDominio() = CheckinSaude(
         id = id,
