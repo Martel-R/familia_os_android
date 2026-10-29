@@ -43,8 +43,15 @@ interface RepositorioSaude {
     fun listarCheckinsHumor(): Flow<List<CheckinSaude>>
     fun listarFichasMedicas(): Flow<List<FichaMedica>>
     fun listarLembretesMedicamento(): Flow<List<MedicamentoLembrete>>
+    fun listarVacinas(): Flow<List<VacinaRegistro>>
+    fun listarConsultasExames(): Flow<List<ConsultaExameRegistro>>
+    fun listarMetricasVitais(): Flow<List<MetricaVitalRegistro>>
     suspend fun registrarCheckin(checkin: CheckinSaude)
     suspend fun alternarMedicamentoTomado(medicamentoId: String)
+    suspend fun adicionarVacina(vacina: VacinaRegistro)
+    suspend fun adicionarConsultaExame(consulta: ConsultaExameRegistro)
+    suspend fun alternarConsultaConcluida(id: String)
+    suspend fun adicionarMetricaVital(metrica: MetricaVitalRegistro)
 }
 
 interface RepositorioInventario {

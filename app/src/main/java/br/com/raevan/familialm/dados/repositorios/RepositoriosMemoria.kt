@@ -312,11 +312,39 @@ class RepositorioSaudeMemoria : RepositorioSaude {
         )
     )
 
+    private val estadoVacinas = MutableStateFlow(
+        listOf(
+            VacinaRegistro("vac-01", "usr-filho-03", "Theo", "Gripe Tetravalente", "Anual", "2026-04-10", "2027-04-10", "AB8829", "UBS Nazaré"),
+            VacinaRegistro("vac-02", "usr-filha-04", "Maya", "Febre Amarela", "Reforço", "2025-11-20", null, "FA1029", "Clínica Imune")
+        )
+    )
+
+    private val estadoConsultas = MutableStateFlow(
+        listOf(
+            ConsultaExameRegistro("con-01", "usr-filho-03", "Theo", "consulta", "Pediatra de Rotina", "Dr. Marcelo - Clínica Saúde", "2026-11-15T14:30:00Z", "2026-12-15", "Levar exames de sangue"),
+            ConsultaExameRegistro("con-02", "usr-pai-01", "Lucas", "exame", "Hemograma Completo", "Lab Sabin", "2026-11-05T08:00:00Z", null, "Jejum de 8h")
+        )
+    )
+
+    private val estadoMetricas = MutableStateFlow(
+        listOf(
+            MetricaVitalRegistro("met-01", "usr-pai-01", "Lucas", "pressao", 120.0, 80.0, "mmHg", "Em repouso", "2026-10-28T18:00:00Z"),
+            MetricaVitalRegistro("met-02", "usr-filho-03", "Theo", "peso", 28.5, null, "kg", "Após natação", "2026-10-27T17:30:00Z"),
+            MetricaVitalRegistro("met-03", "usr-filha-04", "Maya", "temperatura", 36.6, null, "°C", "Rotina", "2026-10-28T09:00:00Z")
+        )
+    )
+
     override fun listarCheckinsHumor(): Flow<List<CheckinSaude>> = estadoCheckins.asStateFlow()
 
     override fun listarFichasMedicas(): Flow<List<FichaMedica>> = estadoFichas.asStateFlow()
 
     override fun listarLembretesMedicamento(): Flow<List<MedicamentoLembrete>> = estadoMedicamentos.asStateFlow()
+
+    override fun listarVacinas(): Flow<List<VacinaRegistro>> = estadoVacinas.asStateFlow()
+
+    override fun listarConsultasExames(): Flow<List<ConsultaExameRegistro>> = estadoConsultas.asStateFlow()
+
+    override fun listarMetricasVitais(): Flow<List<MetricaVitalRegistro>> = estadoMetricas.asStateFlow()
 
     override suspend fun registrarCheckin(checkin: CheckinSaude) = withContext(Dispatchers.IO) {
         estadoCheckins.update { listOf(checkin) + it }
@@ -326,6 +354,24 @@ class RepositorioSaudeMemoria : RepositorioSaude {
         estadoMedicamentos.update { lista ->
             lista.map { if (it.id == medicamentoId) it.copy(foiTomadoHoje = !it.foiTomadoHoje) else it }
         }
+    }
+
+    override suspend fun adicionarVacina(vacina: VacinaRegistro) = withContext(Dispatchers.IO) {
+        estadoVacinas.update { listOf(vacina) + it }
+    }
+
+    override suspend fun adicionarConsultaExame(consulta: ConsultaExameRegistro) = withContext(Dispatchers.IO) {
+        estadoConsultas.update { listOf(consulta) + it }
+    }
+
+    override suspend fun alternarConsultaConcluida(id: String) = withContext(Dispatchers.IO) {
+        estadoConsultas.update { lista ->
+            lista.map { if (it.id == id) it.copy(concluido = !it.concluido) else it }
+        }
+    }
+
+    override suspend fun adicionarMetricaVital(metrica: MetricaVitalRegistro) = withContext(Dispatchers.IO) {
+        estadoMetricas.update { listOf(metrica) + it }
     }
 }
 

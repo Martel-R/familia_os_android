@@ -1,9 +1,13 @@
 package br.com.raevan.familialm.apresentacao.saude
 
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -14,12 +18,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import br.com.raevan.familialm.dominio.modelos.CheckinSaude
-import br.com.raevan.familialm.dominio.modelos.FichaMedica
-import br.com.raevan.familialm.dominio.modelos.MedicamentoLembrete
+import br.com.raevan.familialm.dominio.modelos.*
 import br.com.raevan.familialm.nucleo.tema.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -30,6 +33,7 @@ fun TelaSaude(
     val estado by viewModel.estado.collectAsState()
     var humorSelecionado by remember { mutableStateOf(5) }
     var notaDiarioTexto by remember { mutableStateOf("") }
+    val contexto = LocalContext.current
 
     Scaffold(
         topBar = {
@@ -42,10 +46,22 @@ fun TelaSaude(
                             fontSize = 20.sp
                         )
                         Text(
-                            text = "Fichas de emergência, bem-estar e medicamentos",
+                            text = "Medicamentos, vacinas, exames, métricas e SOS",
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                    }
+                },
+                actions = {
+                    Button(
+                        onClick = { viewModel.alternarModalSos(true) },
+                        colors = ButtonDefaults.buttonColors(containerColor = VermelhoAlerta),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.padding(end = 8.dp)
+                    ) {
+                        Icon(Icons.Default.Warning, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("SOS", fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
@@ -86,27 +102,43 @@ fun TelaSaude(
                 }
             }
 
-            // Abas de seleção
+            // Abas de seleção com rolagem horizontal
             item {
-                TabRow(
+                ScrollableTabRow(
                     selectedTabIndex = estado.abaSelecionada,
                     containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    edgePadding = 8.dp,
                     modifier = Modifier.clip(RoundedCornerShape(12.dp))
                 ) {
                     Tab(
                         selected = estado.abaSelecionada == 0,
                         onClick = { viewModel.selecionarAba(0) },
-                        text = { Text("Emergência 🚨", fontSize = 12.sp) }
+                        text = { Text("Fichas SOS 🚨", fontSize = 12.sp) }
                     )
                     Tab(
                         selected = estado.abaSelecionada == 1,
                         onClick = { viewModel.selecionarAba(1) },
-                        text = { Text("Humor & Diário", fontSize = 12.sp) }
+                        text = { Text("Remédios 💊 (${estado.medicamentos.size})", fontSize = 12.sp) }
                     )
                     Tab(
                         selected = estado.abaSelecionada == 2,
                         onClick = { viewModel.selecionarAba(2) },
-                        text = { Text("Medicamentos", fontSize = 12.sp) }
+                        text = { Text("Vacinas 💉 (${estado.vacinas.size})", fontSize = 12.sp) }
+                    )
+                    Tab(
+                        selected = estado.abaSelecionada == 3,
+                        onClick = { viewModel.selecionarAba(3) },
+                        text = { Text("Consultas 📋 (${estado.consultas.size})", fontSize = 12.sp) }
+                    )
+                    Tab(
+                        selected = estado.abaSelecionada == 4,
+                        onClick = { viewModel.selecionarAba(4) },
+                        text = { Text("Métricas 📊 (${estado.metricas.size})", fontSize = 12.sp) }
+                    )
+                    Tab(
+                        selected = estado.abaSelecionada == 5,
+                        onClick = { viewModel.selecionarAba(5) },
+                        text = { Text("Humor 🙂", fontSize = 12.sp) }
                     )
                 }
             }
@@ -121,59 +153,176 @@ fun TelaSaude(
                         )
                     }
 
-                    items(estado.fichasMedicas.size) { indice ->
-                        val ficha = estado.fichasMedicas[indice]
-                        ItemCardFichaMedica(ficha = ficha)
+                    items(estado.fichasMedicas) { ficha ->
+                        ItemCardFichaMedica(ficha)
                     }
                 }
 
-                1 -> { // Check-in de Humor e Bem-estar
+                1 -> { // Medicamentos
+                    item {
+                        Text(
+                            text = "Remédios com alarme e controle diário:",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    items(estado.medicamentos) { med ->
+                        ItemCardMedicamento(
+                            medicamento = med,
+                            aoAlternar = { viewModel.alternarMedicamentoTomado(med.id) }
+                        )
+                    }
+                }
+
+                2 -> { // Carteira de Vacinação
+                    item {
+                        Text(
+                            text = "Carteira digital de vacinas da família:",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    if (estado.vacinas.isEmpty()) {
+                        item {
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.surface,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = "Nenhuma vacina registrada ainda.",
+                                    fontSize = 13.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(24.dp)
+                                )
+                            }
+                        }
+                    } else {
+                        items(estado.vacinas) { vacina ->
+                            ItemCardVacina(vacina)
+                        }
+                    }
+                }
+
+                3 -> { // Consultas & Exames
+                    item {
+                        Text(
+                            text = "Consultas e exames agendados:",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    if (estado.consultas.isEmpty()) {
+                        item {
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.surface,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = "Nenhum agendamento pendente.",
+                                    fontSize = 13.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(24.dp)
+                                )
+                            }
+                        }
+                    } else {
+                        items(estado.consultas) { consulta ->
+                            ItemCardConsultaExame(
+                                consulta = consulta,
+                                aoAlternar = { viewModel.alternarConsultaConcluida(consulta.id) }
+                            )
+                        }
+                    }
+                }
+
+                4 -> { // Métricas Vitais
+                    item {
+                        Text(
+                            text = "Diário de pressão, glicemia, peso, altura e temperatura:",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    if (estado.metricas.isEmpty()) {
+                        item {
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.surface,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = "Nenhuma medição registrada ainda.",
+                                    fontSize = 13.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(24.dp)
+                                )
+                            }
+                        }
+                    } else {
+                        items(estado.metricas) { metrica ->
+                            ItemCardMetricaVital(metrica)
+                        }
+                    }
+                }
+
+                5 -> { // Check-in de Humor
                     item {
                         Card(
                             shape = RoundedCornerShape(16.dp),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Column(modifier = Modifier.padding(16.dp)) {
                                 Text(
                                     text = "Como você está se sentindo hoje?",
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 15.sp
+                                    fontSize = 16.sp
                                 )
                                 Spacer(modifier = Modifier.height(12.dp))
 
-                                // Seletor de Emojis de Humor
-                                val emojis = listOf("😢" to 1, "🙁" to 2, "😐" to 3, "🙂" to 4, "😃" to 5)
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceAround
+                                    horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
-                                    emojis.forEach { (emoji, nivel) ->
-                                        Surface(
-                                            shape = CircleShape,
-                                            color = if (humorSelecionado == nivel) AzulPrimarioClaro else MaterialTheme.colorScheme.surfaceVariant,
-                                            border = if (humorSelecionado == nivel) androidx.compose.foundation.BorderStroke(2.dp, AzulPrimario) else null,
+                                    val opcoes = listOf(
+                                        Pair(1, "😢"),
+                                        Pair(2, "🙁"),
+                                        Pair(3, "😐"),
+                                        Pair(4, "🙂"),
+                                        Pair(5, "😃")
+                                    )
+
+                                    opcoes.forEach { (nivel, emoji) ->
+                                        Box(
                                             modifier = Modifier
-                                                .size(46.dp)
-                                                .clickable { humorSelecionado = nivel }
+                                                .size(48.dp)
+                                                .clip(CircleShape)
+                                                .background(
+                                                    if (humorSelecionado == nivel) AzulPrimarioClaro else MaterialTheme.colorScheme.surfaceVariant
+                                                )
+                                                .clickable { humorSelecionado = nivel },
+                                            contentAlignment = Alignment.Center
                                         ) {
-                                            Box(contentAlignment = Alignment.Center) {
-                                                Text(text = emoji, fontSize = 22.sp)
-                                            }
+                                            Text(text = emoji, fontSize = 24.sp)
                                         }
                                     }
                                 }
 
-                                Spacer(modifier = Modifier.height(14.dp))
+                                Spacer(modifier = Modifier.height(16.dp))
 
                                 OutlinedTextField(
                                     value = notaDiarioTexto,
                                     onValueChange = { notaDiarioTexto = it },
-                                    label = { Text("Breve diário ou desabafo (opcional)") },
-                                    placeholder = { Text("Ex: Caminhada no parque com a família...") },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    maxLines = 3
+                                    label = { Text("Nota do Diário (Opcional)") },
+                                    placeholder = { Text("Ex: Dia muito produtivo, passeamos no parque...") },
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier.fillMaxWidth()
                                 )
 
                                 Spacer(modifier = Modifier.height(12.dp))
@@ -183,50 +332,120 @@ fun TelaSaude(
                                         viewModel.registrarCheckin(humorSelecionado, notaDiarioTexto)
                                         notaDiarioTexto = ""
                                     },
-                                    modifier = Modifier.align(Alignment.End),
-                                    colors = ButtonDefaults.buttonColors(containerColor = CorSaude)
+                                    colors = ButtonDefaults.buttonColors(containerColor = AzulPrimario),
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    Text("Salvar Check-in")
+                                    Text("Registrar Sentimento do Dia")
                                 }
                             }
                         }
                     }
 
-                    item {
-                        Text(
-                            text = "Histórico de Registros Familiares:",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp
-                        )
-                    }
-
-                    items(estado.checkinsHumor.size) { indice ->
-                        val checkin = estado.checkinsHumor[indice]
-                        ItemCardCheckin(checkin = checkin)
-                    }
-                }
-
-                2 -> { // Medicamentos e Alarmes
-                    item {
-                        Text(
-                            text = "Lembretes e controle de remédios com horário:",
-                            fontSize = 13.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-
-                    items(estado.medicamentos.size) { indice ->
-                        val med = estado.medicamentos[indice]
-                        ItemCardMedicamento(
-                            medicamento = med,
-                            aoAlternar = { viewModel.alternarMedicamentoTomado(med.id) }
-                        )
+                    items(estado.checkinsHumor) { checkin ->
+                        ItemCardCheckin(checkin)
                     }
                 }
             }
 
-            item { Spacer(modifier = Modifier.height(32.dp)) }
+            item {
+                Spacer(modifier = Modifier.height(24.dp))
+            }
         }
+    }
+
+    // Modal SOS Emergência
+    if (estado.modalSosAberto) {
+        AlertDialog(
+            onDismissRequest = { viewModel.alternarModalSos(false) },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("🚨", fontSize = 24.sp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Central SOS Familiar", fontWeight = FontWeight.Bold, color = VermelhoAlerta)
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Discagem rápida de emergência:", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:192"))
+                                contexto.startActivity(intent)
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = VermelhoAlerta),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("🚑 192 SAMU", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        Button(
+                            onClick = {
+                                val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:193"))
+                                contexto.startActivity(intent)
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = LaranjaAcolhedor),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("🚒 193 Bombeiro", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        Button(
+                            onClick = {
+                                val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:190"))
+                                contexto.startActivity(intent)
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = AzulPrimario),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("🚓 190 Polícia", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text("Dados Vitais Rápidos:", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+
+                    estado.fichasMedicas.forEach { ficha ->
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(8.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(text = ficha.nomeUsuario, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                    Text(
+                                        text = "Tipo: ${ficha.tipoSanguineo ?: "-"}",
+                                        fontWeight = FontWeight.Bold,
+                                        color = VermelhoAlerta,
+                                        fontSize = 12.sp
+                                    )
+                                }
+                                if (!ficha.alergias.isNullOrBlank()) {
+                                    Text(text = "⚠️ Alergias: ${ficha.alergias}", fontSize = 11.sp, color = LaranjaAcolhedor)
+                                }
+                                if (!ficha.numeroPlanoSaude.isNullOrBlank()) {
+                                    Text(text = "🏥 Plano: ${ficha.numeroPlanoSaude}", fontSize = 11.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { viewModel.alternarModalSos(false) }) {
+                    Text("Fechar")
+                }
+            }
+        )
     }
 }
 
@@ -302,57 +521,6 @@ fun ItemCardFichaMedica(ficha: FichaMedica) {
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Spacer(modifier = Modifier.height(4.dp))
-            }
-
-            if (!ficha.contatoEmergencia.isNullOrBlank()) {
-                Text(
-                    text = "Contato Rápido: ${ficha.contatoEmergencia}",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = AzulPrimario
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun ItemCardCheckin(checkin: CheckinSaude) {
-    val emoji = when (checkin.nivelHumor) {
-        1 -> "😢"
-        2 -> "🙁"
-        3 -> "😐"
-        4 -> "🙂"
-        else -> "😃"
-    }
-
-    Surface(
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surface,
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(text = emoji, fontSize = 28.sp)
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "${checkin.nomeUsuario ?: "Membro"} • ${checkin.criadoEm}",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 13.sp
-                )
-                if (!checkin.notasDiario.isNullOrBlank()) {
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = checkin.notasDiario,
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
             }
         }
     }
@@ -405,6 +573,233 @@ fun ItemCardMedicamento(
                     color = if (medicamento.foiTomadoHoje) VerdeEsmeralda else Color(0xFFE65100),
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                 )
+            }
+        }
+    }
+}
+
+@Composable
+fun ItemCardVacina(vacina: VacinaRegistro) {
+    Card(
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = vacina.nomeVacina,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp
+                )
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = AzulPrimarioClaro
+                ) {
+                    Text(
+                        text = vacina.dose,
+                        color = AzulPrimario,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Membro: ${vacina.nomeMembro} • Aplicada em: ${vacina.dataAplicacao}",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            if (!vacina.dataProximaDose.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Próxima Dose: ${vacina.dataProximaDose}",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = VerdeEsmeralda
+                )
+            }
+
+            if (!vacina.lote.isNullOrBlank() || !vacina.localAplicacao.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "Lote: ${vacina.lote ?: "-"} • Local: ${vacina.localAplicacao ?: "-"}",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun ItemCardConsultaExame(
+    consulta: ConsultaExameRegistro,
+    aoAlternar: () -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp)
+                .clickable { aoAlternar() },
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Checkbox(
+                checked = consulta.concluido,
+                onCheckedChange = { aoAlternar() },
+                colors = CheckboxDefaults.colors(checkedColor = VerdeEsmeralda)
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = if (consulta.tipo == "consulta") AzulPrimarioClaro else Color(0xFFE8F5E9)
+                    ) {
+                        Text(
+                            text = if (consulta.tipo == "consulta") "Consulta" else "Exame",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (consulta.tipo == "consulta") AzulPrimario else VerdeEsmeralda,
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                        )
+                    }
+                    Text(
+                        text = consulta.titulo,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(3.dp))
+                Text(
+                    text = "${consulta.nomeMembro} • ${consulta.especialistaOuClinica ?: "Clínica Geral"}",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = "Data: ${consulta.dataAgendada.replace("T", " às ").substring(0, minOf(19, consulta.dataAgendada.length))}",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun ItemCardMetricaVital(metrica: MetricaVitalRegistro) {
+    val icone = when (metrica.tipoMetrica) {
+        "pressao" -> "🩸"
+        "glicemia" -> "🍬"
+        "peso" -> "⚖️"
+        "altura" -> "📏"
+        else -> "🌡️"
+    }
+
+    val valorFormatado = if (metrica.tipoMetrica == "pressao" && metrica.valorSecundario != null) {
+        "${metrica.valorPrincipal.toInt()} x ${metrica.valorSecundario.toInt()} ${metrica.unidade}"
+    } else {
+        "${metrica.valorPrincipal} ${metrica.unidade}"
+    }
+
+    Card(
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(text = icone, fontSize = 28.sp)
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "${metrica.tipoMetrica.replaceFirstChar { it.uppercase() }} • ${metrica.nomeMembro}",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = metrica.dataMedicao.substring(0, minOf(10, metrica.dataMedicao.length)),
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = valorFormatado,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    color = AzulPrimario
+                )
+                if (!metrica.observacao.isNullOrBlank()) {
+                    Text(
+                        text = "Obs: ${metrica.observacao}",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ItemCardCheckin(checkin: CheckinSaude) {
+    val emoji = when (checkin.nivelHumor) {
+        1 -> "😢"
+        2 -> "🙁"
+        3 -> "😐"
+        4 -> "🙂"
+        else -> "😃"
+    }
+
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(text = emoji, fontSize = 28.sp)
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "${checkin.nomeUsuario ?: "Membro"} • ${checkin.criadoEm}",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp
+                )
+                if (!checkin.notasDiario.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = checkin.notasDiario,
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
     }

@@ -2,10 +2,7 @@ package br.com.raevan.familialm.apresentacao.saude
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import br.com.raevan.familialm.dominio.modelos.CheckinSaude
-import br.com.raevan.familialm.dominio.modelos.FichaMedica
-import br.com.raevan.familialm.dominio.modelos.MedicamentoLembrete
-import br.com.raevan.familialm.dominio.modelos.Usuario
+import br.com.raevan.familialm.dominio.modelos.*
 import br.com.raevan.familialm.nucleo.di.ProvedorDependencias
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -17,7 +14,11 @@ data class EstadoSaude(
     val checkinsHumor: List<CheckinSaude> = emptyList(),
     val fichasMedicas: List<FichaMedica> = emptyList(),
     val medicamentos: List<MedicamentoLembrete> = emptyList(),
-    val abaSelecionada: Int = 0, // 0: Ficha de Emergência, 1: Check-in de Humor, 2: Medicamentos
+    val vacinas: List<VacinaRegistro> = emptyList(),
+    val consultas: List<ConsultaExameRegistro> = emptyList(),
+    val metricas: List<MetricaVitalRegistro> = emptyList(),
+    val abaSelecionada: Int = 0, // 0: SOS, 1: Medicamentos, 2: Vacinas, 3: Consultas, 4: Métricas, 5: Humor
+    val modalSosAberto: Boolean = false,
     val mensagemSucesso: String? = null
 )
 
@@ -40,12 +41,21 @@ class SaudeViewModel : ViewModel() {
                 repositorioSaude.listarFichasMedicas(),
                 repositorioSaude.listarLembretesMedicamento()
             ) { usuario, checkins, fichas, medicamentos ->
+                TuplaBase(usuario, checkins, fichas, medicamentos)
+            }.combine(repositorioSaude.listarVacinas()) { base, vacinas ->
+                TuplaComVacinas(base, vacinas)
+            }.combine(repositorioSaude.listarConsultasExames()) { base, consultas ->
+                TuplaComConsultas(base, consultas)
+            }.combine(repositorioSaude.listarMetricasVitais()) { base, metricas ->
                 _estado.value.copy(
                     carregando = false,
-                    usuarioLogado = usuario,
-                    checkinsHumor = checkins,
-                    fichasMedicas = fichas,
-                    medicamentos = medicamentos
+                    usuarioLogado = base.base.base.usuario,
+                    checkinsHumor = base.base.base.checkins,
+                    fichasMedicas = base.base.base.fichas,
+                    medicamentos = base.base.base.medicamentos,
+                    vacinas = base.base.vacinas,
+                    consultas = base.consultas,
+                    metricas = metricas
                 )
             }.collect { novoEstado ->
                 _estado.value = novoEstado
@@ -57,9 +67,19 @@ class SaudeViewModel : ViewModel() {
         _estado.update { it.copy(abaSelecionada = indice) }
     }
 
+    fun alternarModalSos(aberto: Boolean) {
+        _estado.update { it.copy(modalSosAberto = aberto) }
+    }
+
     fun alternarMedicamentoTomado(medicamentoId: String) {
         viewModelScope.launch {
             repositorioSaude.alternarMedicamentoTomado(medicamentoId)
+        }
+    }
+
+    fun alternarConsultaConcluida(id: String) {
+        viewModelScope.launch {
+            repositorioSaude.alternarConsultaConcluida(id)
         }
     }
 
@@ -82,4 +102,21 @@ class SaudeViewModel : ViewModel() {
     fun limparMensagemSucesso() {
         _estado.update { it.copy(mensagemSucesso = null) }
     }
+
+    private data class TuplaBase(
+        val usuario: Usuario,
+        val checkins: List<CheckinSaude>,
+        val fichas: List<FichaMedica>,
+        val medicamentos: List<MedicamentoLembrete>
+    )
+
+    private data class TuplaComVacinas(
+        val base: TuplaBase,
+        val vacinas: List<VacinaRegistro>
+    )
+
+    private data class TuplaComConsultas(
+        val base: TuplaComVacinas,
+        val consultas: List<ConsultaExameRegistro>
+    )
 }

@@ -173,6 +173,44 @@ data class MedicamentoDto(
 )
 
 @Serializable
+data class VacinaDto(
+    val id: String,
+    @SerialName("usuario_id") val usuarioId: String,
+    @SerialName("nome_vacina") val nomeVacina: String,
+    val dose: String = "1ª Dose",
+    @SerialName("data_aplicacao") val dataAplicacao: String,
+    @SerialName("data_proxima_dose") val dataProximaDose: String? = null,
+    val lote: String? = null,
+    @SerialName("local_aplicacao") val localAplicacao: String? = null,
+    val observacoes: String? = null
+)
+
+@Serializable
+data class ConsultaExameDto(
+    val id: String,
+    @SerialName("usuario_id") val usuarioId: String,
+    val tipo: String,
+    val titulo: String,
+    @SerialName("especialista_ou_clinica") val especialistaOuClinica: String? = null,
+    @SerialName("data_agendada") val dataAgendada: String,
+    @SerialName("data_retorno") val dataRetorno: String? = null,
+    val observacoes: String? = null,
+    val concluido: Boolean = false
+)
+
+@Serializable
+data class MetricaVitalDto(
+    val id: String,
+    @SerialName("usuario_id") val usuarioId: String,
+    @SerialName("tipo_metrica") val tipoMetrica: String,
+    @SerialName("valor_principal") val valorPrincipal: Double,
+    @SerialName("valor_secundario") val valorSecundario: Double? = null,
+    val unidade: String,
+    val observacao: String? = null,
+    @SerialName("data_medicao") val dataMedicao: String
+)
+
+@Serializable
 data class CredencialCofreDto(
     val id: String,
     val titulo: String,

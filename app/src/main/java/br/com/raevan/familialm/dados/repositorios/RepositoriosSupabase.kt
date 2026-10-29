@@ -551,6 +551,136 @@ class RepositorioSaudeSupabase : RepositorioSaude {
         Unit
     }
 
+    override fun listarVacinas(): Flow<List<VacinaRegistro>> = flow {
+        val dtos = ClienteSupabase.client.from("saude_vacinacao")
+            .select { order("data_aplicacao", Order.DESCENDING) }
+            .decodeList<VacinaDto>()
+
+        val usuarios = ClienteSupabase.client.from("usuarios")
+            .select().decodeList<UsuarioDto>().associateBy { it.id }
+
+        emit(dtos.map { dto ->
+            VacinaRegistro(
+                id = dto.id,
+                usuarioId = dto.usuarioId,
+                nomeMembro = usuarios[dto.usuarioId]?.nome ?: "Membro",
+                nomeVacina = dto.nomeVacina,
+                dose = dto.dose,
+                dataAplicacao = dto.dataAplicacao,
+                dataProximaDose = dto.dataProximaDose,
+                lote = dto.lote,
+                localAplicacao = dto.localAplicacao
+            )
+        })
+    }.flowOn(Dispatchers.IO)
+
+    override fun listarConsultasExames(): Flow<List<ConsultaExameRegistro>> = flow {
+        val dtos = ClienteSupabase.client.from("saude_consultas_exames")
+            .select { order("data_agendada", Order.ASCENDING) }
+            .decodeList<ConsultaExameDto>()
+
+        val usuarios = ClienteSupabase.client.from("usuarios")
+            .select().decodeList<UsuarioDto>().associateBy { it.id }
+
+        emit(dtos.map { dto ->
+            ConsultaExameRegistro(
+                id = dto.id,
+                usuarioId = dto.usuarioId,
+                nomeMembro = usuarios[dto.usuarioId]?.nome ?: "Membro",
+                tipo = dto.tipo,
+                titulo = dto.titulo,
+                especialistaOuClinica = dto.especialistaOuClinica,
+                dataAgendada = dto.dataAgendada,
+                dataRetorno = dto.dataRetorno,
+                observacoes = dto.observacoes,
+                concluido = dto.concluido
+            )
+        })
+    }.flowOn(Dispatchers.IO)
+
+    override fun listarMetricasVitais(): Flow<List<MetricaVitalRegistro>> = flow {
+        val dtos = ClienteSupabase.client.from("saude_metricas_vitais")
+            .select { order("data_medicao", Order.DESCENDING) }
+            .decodeList<MetricaVitalDto>()
+
+        val usuarios = ClienteSupabase.client.from("usuarios")
+            .select().decodeList<UsuarioDto>().associateBy { it.id }
+
+        emit(dtos.map { dto ->
+            MetricaVitalRegistro(
+                id = dto.id,
+                usuarioId = dto.usuarioId,
+                nomeMembro = usuarios[dto.usuarioId]?.nome ?: "Membro",
+                tipoMetrica = dto.tipoMetrica,
+                valorPrincipal = dto.valorPrincipal,
+                valorSecundario = dto.valorSecundario,
+                unidade = dto.unidade,
+                observacao = dto.observacao,
+                dataMedicao = dto.dataMedicao
+            )
+        })
+    }.flowOn(Dispatchers.IO)
+
+    override suspend fun adicionarVacina(vacina: VacinaRegistro) = withContext(Dispatchers.IO) {
+        val dto = VacinaDto(
+            id = vacina.id.ifBlank { UUID.randomUUID().toString() },
+            usuarioId = vacina.usuarioId,
+            nomeVacina = vacina.nomeVacina,
+            dose = vacina.dose,
+            dataAplicacao = vacina.dataAplicacao,
+            dataProximaDose = vacina.dataProximaDose,
+            lote = vacina.lote,
+            localAplicacao = vacina.localAplicacao
+        )
+        ClienteSupabase.client.from("saude_vacinacao").insert(dto)
+        Unit
+    }
+
+    override suspend fun adicionarConsultaExame(consulta: ConsultaExameRegistro) = withContext(Dispatchers.IO) {
+        val dto = ConsultaExameDto(
+            id = consulta.id.ifBlank { UUID.randomUUID().toString() },
+            usuarioId = consulta.usuarioId,
+            tipo = consulta.tipo,
+            titulo = consulta.titulo,
+            especialistaOuClinica = consulta.especialistaOuClinica,
+            dataAgendada = consulta.dataAgendada,
+            dataRetorno = consulta.dataRetorno,
+            observacoes = consulta.observacoes,
+            concluido = consulta.concluido
+        )
+        ClienteSupabase.client.from("saude_consultas_exames").insert(dto)
+        Unit
+    }
+
+    override suspend fun alternarConsultaConcluida(id: String) = withContext(Dispatchers.IO) {
+        val atual = ClienteSupabase.client.from("saude_consultas_exames")
+            .select { filter { eq("id", id) } }
+            .decodeSingleOrNull<ConsultaExameDto>()
+
+        if (atual != null) {
+            ClienteSupabase.client.from("saude_consultas_exames")
+                .update({ set("concluido", !atual.concluido) }) {
+                    filter { eq("id", id) }
+                }
+        }
+        Unit
+    }
+
+    override suspend fun adicionarMetricaVital(metrica: MetricaVitalRegistro) = withContext(Dispatchers.IO) {
+        val dto = MetricaVitalDto(
+            id = metrica.id.ifBlank { UUID.randomUUID().toString() },
+            usuarioId = metrica.usuarioId,
+            tipoMetrica = metrica.tipoMetrica,
+            valorPrincipal = metrica.valorPrincipal,
+            valorSecundario = metrica.valorSecundario,
+            unidade = metrica.unidade,
+            observacao = metrica.observacao,
+            dataMedicao = metrica.dataMedicao
+        )
+        ClienteSupabase.client.from("saude_metricas_vitais").insert(dto)
+        Unit
+    }
+
     private fun CheckinSaudeDto.paraDominio() = CheckinSaude(
         id = id,
         usuarioId = usuarioId,

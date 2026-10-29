@@ -28,3 +28,40 @@ data class MedicamentoLembrete(
     val membroFamiliar: String,
     val foiTomadoHoje: Boolean = false
 )
+
+data class VacinaRegistro(
+    val id: String,
+    val usuarioId: String,
+    val nomeMembro: String = "Membro",
+    val nomeVacina: String,
+    val dose: String = "1ª Dose",
+    val dataAplicacao: String,
+    val dataProximaDose: String? = null,
+    val lote: String? = null,
+    val localAplicacao: String? = null
+)
+
+data class ConsultaExameRegistro(
+    val id: String,
+    val usuarioId: String,
+    val nomeMembro: String = "Membro",
+    val tipo: String, // "consulta" ou "exame"
+    val titulo: String,
+    val especialistaOuClinica: String? = null,
+    val dataAgendada: String,
+    val dataRetorno: String? = null,
+    val observacoes: String? = null,
+    val concluido: Boolean = false
+)
+
+data class MetricaVitalRegistro(
+    val id: String,
+    val usuarioId: String,
+    val nomeMembro: String = "Membro",
+    val tipoMetrica: String, // 'pressao', 'glicemia', 'peso', 'altura', 'temperatura'
+    val valorPrincipal: Double,
+    val valorSecundario: Double? = null,
+    val unidade: String,
+    val observacao: String? = null,
+    val dataMedicao: String
+)
