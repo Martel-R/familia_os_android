@@ -1,5 +1,8 @@
 package br.com.raevan.familialm.apresentacao.cofre
 
+import androidx.compose.ui.platform.LocalContext
+import androidx.fragment.app.FragmentActivity
+import br.com.raevan.familialm.nucleo.seguranca.GerenciadorBiometria
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -26,6 +29,8 @@ import br.com.raevan.familialm.nucleo.tema.*
 fun TelaCofreSenhas(
     viewModel: CofreViewModel
 ) {
+    val contexto = LocalContext.current
+    val activity = contexto as? FragmentActivity
     val estado by viewModel.estado.collectAsState()
     var pinDigitado by remember { mutableStateOf("") }
     var exibirDialogoNovaCredencial by remember { mutableStateOf(false) }
@@ -199,7 +204,19 @@ fun TelaCofreSenhas(
                                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
                                         OutlinedButton(
-                                            onClick = { viewModel.autenticarCofreMaster(true) },
+                                            onClick = {
+                                                if (activity != null && GerenciadorBiometria.podeAutenticarComBiometria(contexto)) {
+                                                    GerenciadorBiometria.solicitarAutenticacao(
+                                                        activity = activity,
+                                                        titulo = "Desbloquear Cofre Master",
+                                                        subtitulo = "Confirme sua digital ou reconhecimento facial",
+                                                        aoSucesso = { viewModel.autenticarCofreMaster(true) },
+                                                        aoErro = { }
+                                                    )
+                                                } else {
+                                                    viewModel.autenticarCofreMaster(true)
+                                                }
+                                            },
                                             modifier = Modifier.weight(1f)
                                         ) {
                                             Icon(Icons.Default.Fingerprint, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -313,7 +330,82 @@ fun TelaCofreSenhas(
 
 @Composable
 fun ItemCardCredencial(credencial: CredencialCofre) {
+    val contexto = LocalContext.current
+    val activity = contexto as? FragmentActivity
     var exibirSenha by remember { mutableStateOf(false) }
+    var exibirDialogoPin by remember { mutableStateOf(false) }
+    var pinDigitado by remember { mutableStateOf("") }
+    var erroPin by remember { mutableStateOf(false) }
+
+    val alternarExibicao = {
+        if (exibirSenha) {
+            exibirSenha = false
+        } else {
+            if (activity != null && GerenciadorBiometria.podeAutenticarComBiometria(contexto)) {
+                GerenciadorBiometria.solicitarAutenticacao(
+                    activity = activity,
+                    titulo = "Visualizar Senha",
+                    subtitulo = "Confirme sua identidade para exibir a senha de ${credencial.titulo}",
+                    aoSucesso = { exibirSenha = true },
+                    aoErro = { exibirDialogoPin = true }
+                )
+            } else {
+                exibirDialogoPin = true
+            }
+        }
+    }
+
+    if (exibirDialogoPin) {
+        AlertDialog(
+            onDismissRequest = {
+                exibirDialogoPin = false
+                pinDigitado = ""
+                erroPin = false
+            },
+            title = { Text("Autenticação Necessária", fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    Text("Digite sua senha de acesso ou PIN para visualizar:", fontSize = 13.sp)
+                    Spacer(modifier = Modifier.height(10.dp))
+                    OutlinedTextField(
+                        value = pinDigitado,
+                        onValueChange = { pinDigitado = it; erroPin = false },
+                        label = { Text("Senha / PIN") },
+                        singleLine = true,
+                        isError = erroPin,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (erroPin) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text("Senha não pode ser vazia.", color = MaterialTheme.colorScheme.error, fontSize = 11.sp)
+                    }
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    if (pinDigitado.isNotBlank()) {
+                        exibirSenha = true
+                        exibirDialogoPin = false
+                        pinDigitado = ""
+                        erroPin = false
+                    } else {
+                        erroPin = true
+                    }
+                }) {
+                    Text("Confirmar")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    exibirDialogoPin = false
+                    pinDigitado = ""
+                    erroPin = false
+                }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
 
     Card(
         shape = RoundedCornerShape(14.dp),
@@ -369,7 +461,7 @@ fun ItemCardCredencial(credencial: CredencialCofre) {
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f)
                 )
-                IconButton(onClick = { exibirSenha = !exibirSenha }) {
+                IconButton(onClick = { alternarExibicao() }) {
                     Icon(
                         imageVector = if (exibirSenha) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                         contentDescription = "Mostrar Senha",
