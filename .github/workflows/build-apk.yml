@@ -27,12 +27,12 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Build Debug APK
-        run: ./gradlew assembleDebug --no-daemon --stacktrace -Dorg.gradle.java.home="$JAVA_HOME"
+      - name: Build Release APK (Signed)
+        run: ./gradlew assembleRelease --no-daemon --stacktrace -Dorg.gradle.java.home="$JAVA_HOME"
 
       - name: Prepare APK File
         run: |
-          cp app/build/outputs/apk/debug/app-debug.apk familia-os.apk
+          cp app/build/outputs/apk/release/app-release.apk familia-os.apk
           ls -lh familia-os.apk
 
       - name: Upload APK Artifact
