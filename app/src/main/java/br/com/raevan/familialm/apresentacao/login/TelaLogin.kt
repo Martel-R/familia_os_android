@@ -25,6 +25,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import br.com.raevan.familialm.dados.sessao.GerenciadorSessao
 import br.com.raevan.familialm.nucleo.tema.AzulPrimario
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -33,7 +34,10 @@ fun TelaLogin(
     viewModel: LoginViewModel,
     aoLoginSucesso: () -> Unit
 ) {
-    var email by remember { mutableStateOf("martel.r@outlook.com") }
+    var email by remember {
+        val salvo = try { GerenciadorSessao.obterInstancia().obterUltimoEmail() } catch (_: Exception) { "" }
+        mutableStateOf(salvo)
+    }
     var senha by remember { mutableStateOf("") }
     var senhaVisivel by remember { mutableStateOf(false) }
     var modoCadastro by remember { mutableStateOf(false) }

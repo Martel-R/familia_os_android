@@ -1,6 +1,7 @@
 package br.com.raevan.familialm.nucleo.seguranca
 
 import android.content.Context
+import android.os.Build
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
@@ -8,14 +9,25 @@ import androidx.fragment.app.FragmentActivity
 
 object GerenciadorBiometria {
 
-    fun podeAutenticarComBiometria(context: Context): Boolean {
-        val biometricManager = BiometricManager.from(context)
-        val status = biometricManager.canAuthenticate(
+    private fun obterAutenticadoresPermitidos(): Int {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             BiometricManager.Authenticators.BIOMETRIC_STRONG or
+                BiometricManager.Authenticators.BIOMETRIC_WEAK or
+                BiometricManager.Authenticators.DEVICE_CREDENTIAL
+        } else {
             BiometricManager.Authenticators.BIOMETRIC_WEAK or
-            BiometricManager.Authenticators.DEVICE_CREDENTIAL
-        )
-        return status == BiometricManager.BIOMETRIC_SUCCESS
+                BiometricManager.Authenticators.DEVICE_CREDENTIAL
+        }
+    }
+
+    fun podeAutenticarComBiometria(context: Context): Boolean {
+        return try {
+            val biometricManager = BiometricManager.from(context)
+            val status = biometricManager.canAuthenticate(obterAutenticadoresPermitidos())
+            status == BiometricManager.BIOMETRIC_SUCCESS
+        } catch (_: Exception) {
+            false
+        }
     }
 
     fun solicitarAutenticacao(
@@ -25,34 +37,34 @@ object GerenciadorBiometria {
         aoSucesso: () -> Unit,
         aoErro: (String) -> Unit = {}
     ) {
-        val executor = ContextCompat.getMainExecutor(activity)
-        val callback = object : BiometricPrompt.AuthenticationCallback() {
-            override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                super.onAuthenticationSucceeded(result)
-                aoSucesso()
+        try {
+            val executor = ContextCompat.getMainExecutor(activity)
+            val callback = object : BiometricPrompt.AuthenticationCallback() {
+                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                    super.onAuthenticationSucceeded(result)
+                    aoSucesso()
+                }
+
+                override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                    super.onAuthenticationError(errorCode, errString)
+                    aoErro(errString.toString())
+                }
+
+                override fun onAuthenticationFailed() {
+                    super.onAuthenticationFailed()
+                }
             }
 
-            override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
-                super.onAuthenticationError(errorCode, errString)
-                aoErro(errString.toString())
-            }
+            val promptInfo = BiometricPrompt.PromptInfo.Builder()
+                .setTitle(titulo)
+                .setSubtitle(subtitulo)
+                .setAllowedAuthenticators(obterAutenticadoresPermitidos())
+                .build()
 
-            override fun onAuthenticationFailed() {
-                super.onAuthenticationFailed()
-            }
+            val biometricPrompt = BiometricPrompt(activity, executor, callback)
+            biometricPrompt.authenticate(promptInfo)
+        } catch (e: Exception) {
+            aoErro(e.localizedMessage ?: "Não foi possível abrir o leitor biométrico.")
         }
-
-        val promptInfo = BiometricPrompt.PromptInfo.Builder()
-            .setTitle(titulo)
-            .setSubtitle(subtitulo)
-            .setAllowedAuthenticators(
-                BiometricManager.Authenticators.BIOMETRIC_STRONG or
-                BiometricManager.Authenticators.BIOMETRIC_WEAK or
-                BiometricManager.Authenticators.DEVICE_CREDENTIAL
-            )
-            .build()
-
-        val biometricPrompt = BiometricPrompt(activity, executor, callback)
-        biometricPrompt.authenticate(promptInfo)
     }
 }

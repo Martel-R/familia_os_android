@@ -2,6 +2,7 @@ package br.com.raevan.familialm.dados.remoto.dto
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
 
 @Serializable
 data class FamiliaDto(
@@ -19,8 +20,8 @@ data class UsuarioDto(
     @SerialName("familia_id") val familiaId: String? = null,
     @SerialName("auth_user_id") val authUserId: String? = null,
     val email: String? = null,
-    val nome: String,
-    val perfil: String,
+    val nome: String = "Membro",
+    val perfil: String = "filho_membro",
     @SerialName("saldo_moedas") val saldoMoedas: Int = 0,
     @SerialName("avatar_url") val avatarUrl: String? = null,
     val ativo: Boolean = true,
@@ -30,12 +31,13 @@ data class UsuarioDto(
 @Serializable
 data class TransacaoDto(
     val id: String,
+    @SerialName("familia_id") val familiaId: String? = null,
     @SerialName("usuario_id") val usuarioId: String? = null,
     @SerialName("categoria_id") val categoriaId: String? = null,
-    val tipo: String,
-    val descricao: String,
-    val valor: Double,
-    @SerialName("data_vencimento") val dataVencimento: String,
+    val tipo: String = "despesa_variavel",
+    val descricao: String = "",
+    val valor: Double = 0.0,
+    @SerialName("data_vencimento") val dataVencimento: String = "",
     @SerialName("data_pagamento") val dataPagamento: String? = null,
     val status: String = "pendente",
     val observacoes: String? = null,
@@ -45,8 +47,9 @@ data class TransacaoDto(
 @Serializable
 data class CofrinhoDto(
     val id: String,
-    val nome: String,
-    @SerialName("meta_valor") val metaValor: Double,
+    @SerialName("familia_id") val familiaId: String? = null,
+    val nome: String = "",
+    @SerialName("meta_valor") val metaValor: Double = 0.0,
     @SerialName("saldo_atual") val saldoAtual: Double = 0.0,
     @SerialName("data_limite") val dataLimite: String? = null,
     val icone: String? = null
@@ -55,7 +58,8 @@ data class CofrinhoDto(
 @Serializable
 data class TarefaRotinaDto(
     val id: String,
-    val titulo: String,
+    @SerialName("familia_id") val familiaId: String? = null,
+    val titulo: String = "",
     @SerialName("responsavel_id") val responsavelId: String? = null,
     val recorrencia: String = "diaria",
     @SerialName("dias_semana") val diasSemana: String? = null,
@@ -70,8 +74,9 @@ data class TarefaRotinaDto(
 @Serializable
 data class ItemLojaDto(
     val id: String,
-    val titulo: String,
-    @SerialName("custo_moedas") val custoMoedas: Int,
+    @SerialName("familia_id") val familiaId: String? = null,
+    val titulo: String = "",
+    @SerialName("custo_moedas") val custoMoedas: Int = 0,
     val icone: String? = null,
     @SerialName("estoque_disponivel") val estoqueDisponivel: Int? = null,
     val descricao: String? = null,
@@ -81,8 +86,9 @@ data class ItemLojaDto(
 @Serializable
 data class EventoDto(
     val id: String,
-    val nome: String,
-    @SerialName("data_evento") val dataEvento: String,
+    @SerialName("familia_id") val familiaId: String? = null,
+    val nome: String = "",
+    @SerialName("data_evento") val dataEvento: String = "",
     @SerialName("data_fim") val dataFim: String? = null,
     val tipo: String? = "outro",
     val local: String? = null,
@@ -95,8 +101,9 @@ data class EventoDto(
 @Serializable
 data class ConvidadoDto(
     val id: String,
-    @SerialName("evento_id") val eventoId: String,
-    val nome: String,
+    @SerialName("familia_id") val familiaId: String? = null,
+    @SerialName("evento_id") val eventoId: String = "",
+    val nome: String = "",
     val telefone: String? = null,
     val status: String = "pendente",
     val adultos: Int = 1,
@@ -108,10 +115,11 @@ data class ConvidadoDto(
 @Serializable
 data class CotacaoDto(
     val id: String,
+    @SerialName("familia_id") val familiaId: String? = null,
     @SerialName("evento_id") val eventoId: String? = null,
-    @SerialName("item_ou_servico") val itemOuServico: String,
-    val fornecedor: String,
-    val valor: Double,
+    @SerialName("item_ou_servico") val itemOuServico: String = "",
+    val fornecedor: String = "",
+    val valor: Double = 0.0,
     val status: String = "em_analise",
     val pago: Boolean = false,
     val categoria: String? = "geral",
@@ -122,12 +130,13 @@ data class CotacaoDto(
 @Serializable
 data class ContatoDto(
     val id: String,
-    val nome: String,
+    @SerialName("familia_id") val familiaId: String? = null,
+    val nome: String = "",
     val categoria: String? = "amigos",
     val especialidade: String? = null,
     @SerialName("membro_id") val membroId: String? = null,
     @SerialName("grau_parentesco") val grauParentesco: String? = null,
-    val telefone: String,
+    val telefone: String = "",
     val email: String? = null,
     @SerialName("foto_uri") val fotoUri: String? = null,
     @SerialName("eh_emergencia") val ehEmergencia: Boolean = false,
@@ -138,8 +147,9 @@ data class ContatoDto(
 @Serializable
 data class ItemInventarioDto(
     val id: String,
-    val nome: String,
-    val localizacao: String,
+    @SerialName("familia_id") val familiaId: String? = null,
+    val nome: String = "",
+    val localizacao: String = "",
     val quantidade: Int = 1,
     @SerialName("data_compra") val dataCompra: String? = null,
     @SerialName("data_fim_garantia") val dataFimGarantia: String? = null,
@@ -150,10 +160,11 @@ data class ItemInventarioDto(
 @Serializable
 data class HistoricoManutencaoDto(
     val id: String,
+    @SerialName("familia_id") val familiaId: String? = null,
     @SerialName("item_id") val itemId: String? = null,
     @SerialName("prestador_id") val prestadorId: String? = null,
-    val descricao: String,
-    @SerialName("data_servico") val dataServico: String,
+    val descricao: String = "",
+    @SerialName("data_servico") val dataServico: String = "",
     val custo: Double? = null,
     @SerialName("data_proxima_manutencao") val dataProximaManutencao: String? = null
 )
@@ -161,8 +172,9 @@ data class HistoricoManutencaoDto(
 @Serializable
 data class CheckinSaudeDto(
     val id: String,
-    @SerialName("usuario_id") val usuarioId: String,
-    @SerialName("nivel_humor") val nivelHumor: Int,
+    @SerialName("familia_id") val familiaId: String? = null,
+    @SerialName("usuario_id") val usuarioId: String = "",
+    @SerialName("nivel_humor") val nivelHumor: Int = 3,
     @SerialName("notas_diario") val notasDiario: String? = null,
     @SerialName("criado_em") val criadoEm: String = ""
 )
@@ -170,7 +182,8 @@ data class CheckinSaudeDto(
 @Serializable
 data class FichaMedicaDto(
     val id: String,
-    @SerialName("usuario_id") val usuarioId: String,
+    @SerialName("familia_id") val familiaId: String? = null,
+    @SerialName("usuario_id") val usuarioId: String = "",
     @SerialName("tipo_sanguineo") val tipoSanguineo: String? = null,
     val alergias: String? = null,
     @SerialName("medicamentos_uso_continuo") val medicamentosUsoContinuo: String? = null,
@@ -186,10 +199,11 @@ data class FichaMedicaDto(
 @Serializable
 data class MedicamentoDto(
     val id: String,
-    @SerialName("usuario_id") val usuarioId: String,
-    @SerialName("nome_remedio") val nomeRemedio: String,
-    val dosagem: String,
-    val horario: String,
+    @SerialName("familia_id") val familiaId: String? = null,
+    @SerialName("usuario_id") val usuarioId: String = "",
+    @SerialName("nome_remedio") val nomeRemedio: String = "",
+    val dosagem: String = "",
+    val horario: String = "",
     @SerialName("foi_tomado_hoje") val foiTomadoHoje: Boolean = false,
     @SerialName("criado_em") val criadoEm: String = ""
 )
@@ -197,10 +211,11 @@ data class MedicamentoDto(
 @Serializable
 data class VacinaDto(
     val id: String,
-    @SerialName("usuario_id") val usuarioId: String,
-    @SerialName("nome_vacina") val nomeVacina: String,
+    @SerialName("familia_id") val familiaId: String? = null,
+    @SerialName("usuario_id") val usuarioId: String = "",
+    @SerialName("nome_vacina") val nomeVacina: String = "",
     val dose: String = "1ª Dose",
-    @SerialName("data_aplicacao") val dataAplicacao: String,
+    @SerialName("data_aplicacao") val dataAplicacao: String = "",
     @SerialName("data_proxima_dose") val dataProximaDose: String? = null,
     val lote: String? = null,
     @SerialName("local_aplicacao") val localAplicacao: String? = null,
@@ -210,9 +225,10 @@ data class VacinaDto(
 @Serializable
 data class ConsultaExameDto(
     val id: String,
-    @SerialName("usuario_id") val usuarioId: String,
-    val tipo: String,
-    val titulo: String,
+    @SerialName("familia_id") val familiaId: String? = null,
+    @SerialName("usuario_id") val usuarioId: String = "",
+    val tipo: String = "consulta",
+    val titulo: String = "",
     @SerialName("especialista_ou_clinica") val especialistaOuClinica: String? = null,
     @SerialName("data_agendada") val dataAgendada: String? = null,
     @SerialName("data_retorno") val dataRetorno: String? = null,
@@ -227,22 +243,24 @@ data class ConsultaExameDto(
 @Serializable
 data class MetricaVitalDto(
     val id: String,
-    @SerialName("usuario_id") val usuarioId: String,
-    @SerialName("tipo_metrica") val tipoMetrica: String,
-    @SerialName("valor_principal") val valorPrincipal: Double,
+    @SerialName("familia_id") val familiaId: String? = null,
+    @SerialName("usuario_id") val usuarioId: String = "",
+    @SerialName("tipo_metrica") val tipoMetrica: String = "",
+    @SerialName("valor_principal") val valorPrincipal: Double = 0.0,
     @SerialName("valor_secundario") val valorSecundario: Double? = null,
-    val unidade: String,
+    val unidade: String = "",
     val observacao: String? = null,
-    @SerialName("data_medicao") val dataMedicao: String
+    @SerialName("data_medicao") val dataMedicao: String = ""
 )
 
 @Serializable
 data class CredencialCofreDto(
     val id: String,
-    val titulo: String,
-    val nivel: String,
+    @SerialName("familia_id") val familiaId: String? = null,
+    val titulo: String = "",
+    val nivel: String = "compartilhado",
     @SerialName("login_usuario") val loginUsuario: String? = null,
-    @SerialName("senha_criptografada") val senhaCriptografada: String,
+    @SerialName("senha_criptografada") val senhaCriptografada: String = "",
     @SerialName("url_acesso") val urlAcesso: String? = null,
     @SerialName("notas_seguras") val notasSeguras: String? = null,
     @SerialName("criado_por") val criadoPor: String? = null
@@ -251,16 +269,18 @@ data class CredencialCofreDto(
 @Serializable
 data class ConquistaMuralDto(
     val id: String,
-    val titulo: String,
-    val descricao: String?,
+    @SerialName("familia_id") val familiaId: String? = null,
+    val titulo: String = "",
+    val descricao: String? = null,
     @SerialName("usuario_id") val usuarioId: String? = null,
-    @SerialName("data_conquista") val dataConquista: String,
+    @SerialName("data_conquista") val dataConquista: String = "",
     @SerialName("caminho_foto") val caminhoFoto: String? = null
 )
 
 @Serializable
 data class ReciboCompraDto(
     val id: String,
+    @SerialName("familia_id") val familiaId: String? = null,
     val fornecedor: String? = null,
     @SerialName("data_compra") val dataCompra: String? = null,
     @SerialName("valor_total") val valorTotal: Double = 0.0,
@@ -271,17 +291,17 @@ data class ReciboCompraDto(
 @Serializable
 data class ItemCompraExtraidoDto(
     val id: String,
-    @SerialName("recibo_id") val reciboId: String,
-    @SerialName("nome_produto") val nomeProduto: String,
+    @SerialName("recibo_id") val reciboId: String = "",
+    @SerialName("nome_produto") val nomeProduto: String = "",
     val quantidade: Double = 1.0,
-    @SerialName("valor_unitario") val valorUnitario: Double,
+    @SerialName("valor_unitario") val valorUnitario: Double = 0.0,
     @SerialName("categoria_sugerida") val categoriaSugerida: String? = null
 )
 
 @Serializable
 data class ConfiguracaoCasaDto(
-    val chave: String,
-    val valor: String,
-    val descricao: String? = null,
+    val id: String,
+    val valor: JsonElement? = null,
+    @SerialName("atualizado_em") val atualizadoEm: String? = null,
     @SerialName("familia_id") val familiaId: String? = null
 )

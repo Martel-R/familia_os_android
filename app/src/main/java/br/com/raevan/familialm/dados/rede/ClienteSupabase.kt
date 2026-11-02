@@ -3,32 +3,62 @@ package br.com.raevan.familialm.dados.rede
 import android.content.Context
 import br.com.raevan.familialm.dados.sessao.GerenciadorSessao
 import io.github.jan.supabase.SupabaseClient
+import io.github.jan.supabase.annotations.SupabaseInternal
+import io.github.jan.supabase.auth.Auth
+import io.github.jan.supabase.auth.MemoryCodeVerifierCache
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.Postgrest
-import io.github.jan.supabase.auth.Auth
+import io.github.jan.supabase.serializer.KotlinXSerializer
 import io.github.jan.supabase.storage.Storage
+import io.ktor.client.plugins.UserAgent
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.json.Json
+import kotlin.time.Duration.Companion.seconds
 
 object ClienteSupabase {
-    private const val SUPABASE_URL = "https://api-supabase.martel.page"
-    private const val SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0"
+    const val SUPABASE_URL = "https://api-supabase.martel.page"
+    const val SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0"
+    const val USER_AGENT_PADRAO = "Mozilla/5.0 (Linux; Android 14; FamiliaOS/2.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
+
+    @OptIn(ExperimentalSerializationApi::class)
+    val jsonPadrao = Json {
+        ignoreUnknownKeys = true
+        coerceInputValues = true
+        isLenient = true
+        encodeDefaults = true
+        explicitNulls = false
+    }
 
     @Volatile
     private var clienteInstancia: SupabaseClient? = null
 
+    @OptIn(SupabaseInternal::class)
     fun inicializar(context: Context) {
         if (clienteInstancia == null) {
-            val sessionManager = GerenciadorSessao.inicializar(context)
-            clienteInstancia = createSupabaseClient(
-                supabaseUrl = SUPABASE_URL,
-                supabaseKey = SUPABASE_ANON_KEY
-            ) {
-                install(Postgrest) {
-                    defaultSchema = "familialm"
+            synchronized(this) {
+                if (clienteInstancia == null) {
+                    val sessionManager = GerenciadorSessao.inicializar(context.applicationContext)
+                    clienteInstancia = createSupabaseClient(
+                        supabaseUrl = SUPABASE_URL,
+                        supabaseKey = SUPABASE_ANON_KEY
+                    ) {
+                        requestTimeout = 20.seconds
+                        defaultSerializer = KotlinXSerializer(jsonPadrao)
+                        httpConfig {
+                            install(UserAgent) {
+                                agent = USER_AGENT_PADRAO
+                            }
+                        }
+                        install(Postgrest) {
+                            defaultSchema = "familialm"
+                        }
+                        install(Auth) {
+                            this.sessionManager = sessionManager
+                            this.codeVerifierCache = MemoryCodeVerifierCache()
+                        }
+                        install(Storage)
+                    }
                 }
-                install(Auth) {
-                    this.sessionManager = sessionManager
-                }
-                install(Storage)
             }
         }
     }
@@ -38,15 +68,25 @@ object ClienteSupabase {
             clienteInstancia ?: criarPadrao().also { clienteInstancia = it }
         }
 
+    @OptIn(SupabaseInternal::class)
     private fun criarPadrao(): SupabaseClient {
         return createSupabaseClient(
             supabaseUrl = SUPABASE_URL,
             supabaseKey = SUPABASE_ANON_KEY
         ) {
+            requestTimeout = 20.seconds
+            defaultSerializer = KotlinXSerializer(jsonPadrao)
+            httpConfig {
+                install(UserAgent) {
+                    agent = USER_AGENT_PADRAO
+                }
+            }
             install(Postgrest) {
                 defaultSchema = "familialm"
             }
-            install(Auth)
+            install(Auth) {
+                this.codeVerifierCache = MemoryCodeVerifierCache()
+            }
             install(Storage)
         }
     }

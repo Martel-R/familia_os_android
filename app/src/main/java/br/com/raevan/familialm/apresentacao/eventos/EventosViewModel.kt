@@ -141,11 +141,14 @@ class EventosViewModel : ViewModel() {
                         .openConnection() as HttpURLConnection).apply {
                         requestMethod = "POST"
                         setRequestProperty("Content-Type", "application/json")
+                        setRequestProperty("User-Agent", br.com.raevan.familialm.dados.rede.ClienteSupabase.USER_AGENT_PADRAO)
                         doOutput = true
                         connectTimeout = 12000
                         readTimeout = 12000
                     }
                     val body = JSONObject().apply {
+                        put("convidadoId", convidado.id)
+                        put("eventoId", evento.id)
                         put("telefone", tel)
                         put("nomeConvidado", convidado.nome)
                         put("nomeEvento", evento.nome)

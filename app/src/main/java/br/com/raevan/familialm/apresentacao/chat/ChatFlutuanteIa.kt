@@ -338,11 +338,13 @@ private suspend fun consultarAgenteIa(pergunta: String, familiaId: String): Pair
             val conn = (URL(endpoint).openConnection() as HttpURLConnection).apply {
                 requestMethod = "POST"
                 setRequestProperty("Content-Type", "application/json")
+                setRequestProperty("User-Agent", br.com.raevan.familialm.dados.rede.ClienteSupabase.USER_AGENT_PADRAO)
                 doOutput = true
                 connectTimeout = 18000
                 readTimeout = 25000
             }
             val payload = JSONObject().apply {
+                put("pergunta", pergunta)
                 put("question", pergunta)
                 put("familia_id", familiaId)
             }
@@ -351,8 +353,11 @@ private suspend fun consultarAgenteIa(pergunta: String, familiaId: String): Pair
             if (conn.responseCode in 200..299) {
                 val respTexto = conn.inputStream.bufferedReader().use { it.readText() }
                 val json = JSONObject(respTexto)
-                val answer = json.optString("answer", "Consulta concluída.")
-                val sql = json.optString("sql", "").takeIf { it.isNotBlank() }
+                val answer = json.optString("resposta")
+                    .ifBlank { json.optString("answer", "Consulta concluída.") }
+                val sql = json.optString("sql_gerado")
+                    .ifBlank { json.optString("sql", "") }
+                    .takeIf { it.isNotBlank() }
                 return@withContext answer to sql
             }
         } catch (_: Exception) {}

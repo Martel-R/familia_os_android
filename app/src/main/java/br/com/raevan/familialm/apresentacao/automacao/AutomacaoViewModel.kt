@@ -85,6 +85,7 @@ class AutomacaoViewModel : ViewModel() {
                     val connCfg = (URL("https://familia.martel.page/api/whatsapp/config?familiaId=$familiaId")
                         .openConnection() as HttpURLConnection).apply {
                         requestMethod = "GET"
+                        setRequestProperty("User-Agent", br.com.raevan.familialm.dados.rede.ClienteSupabase.USER_AGENT_PADRAO)
                         connectTimeout = 10000
                         readTimeout = 10000
                     }
@@ -94,14 +95,15 @@ class AutomacaoViewModel : ViewModel() {
                     if (connCfg.responseCode in 200..299) {
                         val txt = connCfg.inputStream.bufferedReader().use { it.readText() }
                         val json = JSONObject(txt)
-                        urlEvo = json.optString("url", urlEvo)
+                        urlEvo = json.optString("serverUrl").ifBlank { json.optString("url", urlEvo) }
                         apiKeyEvo = json.optString("apiKey", apiKeyEvo)
-                        instEvo = json.optString("instance", instEvo)
+                        instEvo = json.optString("instanceName").ifBlank { json.optString("instance", instEvo) }
                     }
 
                     val connInst = (URL("https://familia.martel.page/api/whatsapp/instance?familiaId=$familiaId")
                         .openConnection() as HttpURLConnection).apply {
                         requestMethod = "GET"
+                        setRequestProperty("User-Agent", br.com.raevan.familialm.dados.rede.ClienteSupabase.USER_AGENT_PADRAO)
                         connectTimeout = 10000
                         readTimeout = 10000
                     }
@@ -145,13 +147,16 @@ class AutomacaoViewModel : ViewModel() {
                         .openConnection() as HttpURLConnection).apply {
                         requestMethod = "POST"
                         setRequestProperty("Content-Type", "application/json")
+                        setRequestProperty("User-Agent", br.com.raevan.familialm.dados.rede.ClienteSupabase.USER_AGENT_PADRAO)
                         doOutput = true
                         connectTimeout = 12000
                         readTimeout = 12000
                     }
                     val body = JSONObject().apply {
+                        put("serverUrl", url.trim())
                         put("url", url.trim())
                         put("apiKey", apiKey.trim())
+                        put("instanceName", instance.trim())
                         put("instance", instance.trim())
                         put("familiaId", familiaId)
                     }

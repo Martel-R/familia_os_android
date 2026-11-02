@@ -34,9 +34,37 @@ class LoginViewModel : ViewModel() {
     }
 
     fun verificarSessao() {
-        val sessao = ClienteSupabase.client.auth.currentSessionOrNull()
+        val sessao = try { ClienteSupabase.client.auth.currentSessionOrNull() } catch (_: Exception) { null }
         val temSessaoSalva = try { GerenciadorSessao.obterInstancia().temSessaoSalva() } catch (_: Exception) { false }
         _usuarioAutenticado.value = (sessao != null || temSessaoSalva)
+    }
+
+    private suspend fun sincronizarTenantPorEmail(emailUsuario: String) = withContext(Dispatchers.IO) {
+        try {
+            val emailLimpo = emailUsuario.trim()
+            if (emailLimpo.isBlank()) return@withContext
+            val authUserId = try { ClienteSupabase.client.auth.currentUserOrNull()?.id ?: "" } catch (_: Exception) { "" }
+            val url = URL(
+                "https://familia.martel.page/api/tenant?email=${java.net.URLEncoder.encode(emailLimpo, "UTF-8")}&authUserId=${java.net.URLEncoder.encode(authUserId, "UTF-8")}"
+            )
+            val conn = (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                setRequestProperty("User-Agent", ClienteSupabase.USER_AGENT_PADRAO)
+                connectTimeout = 10000
+                readTimeout = 10000
+            }
+            if (conn.responseCode in 200..299) {
+                val txt = conn.inputStream.bufferedReader().use { it.readText() }
+                val json = JSONObject(txt)
+                val famObj = json.optJSONObject("familia")
+                if (famObj != null) {
+                    val famId = famObj.optString("id").takeIf { it.isNotBlank() } ?: GerenciadorSessao.DEFAULT_FAMILIA_ID
+                    val famNome = famObj.optString("nome").takeIf { it.isNotBlank() } ?: "Minha Família"
+                    val famCodigo = famObj.optString("codigo_convite").takeIf { it.isNotBlank() } ?: "MARTEL"
+                    GerenciadorSessao.obterInstancia().salvarFamiliaAtiva(famId, famNome, famCodigo)
+                }
+            }
+        } catch (_: Exception) {}
     }
 
     fun fazerLogin(emailDigitado: String, senhaDigitada: String) {
@@ -54,9 +82,10 @@ class LoginViewModel : ViewModel() {
                     password = senhaDigitada
                 }
                 try {
-                    GerenciadorSessao.obterInstancia().salvarUltimoEmail(emailDigitado)
+                    GerenciadorSessao.obterInstancia().salvarUltimoEmail(emailDigitado.trim())
                 } catch (_: Exception) {}
 
+                sincronizarTenantPorEmail(emailDigitado.trim())
                 _usuarioAutenticado.value = true
             } catch (e: Exception) {
                 _mensagemErro.value = "Falha no login: credenciais inválidas ou sem conexão."
@@ -96,6 +125,7 @@ class LoginViewModel : ViewModel() {
                     val conn = (url.openConnection() as HttpURLConnection).apply {
                         requestMethod = "POST"
                         setRequestProperty("Content-Type", "application/json")
+                        setRequestProperty("User-Agent", ClienteSupabase.USER_AGENT_PADRAO)
                         doOutput = true
                         connectTimeout = 15000
                         readTimeout = 15000
@@ -124,6 +154,16 @@ class LoginViewModel : ViewModel() {
                         val jsonErr = try { JSONObject(respostaTexto).optString("error") } catch (_: Exception) { "" }
                         throw IllegalStateException(jsonErr.ifBlank { "Erro ao registrar família ($status)." })
                     }
+
+                    try {
+                        val famObj = JSONObject(respostaTexto).optJSONObject("familia")
+                        if (famObj != null) {
+                            val famId = famObj.optString("id").takeIf { it.isNotBlank() } ?: GerenciadorSessao.DEFAULT_FAMILIA_ID
+                            val famNome = famObj.optString("nome").takeIf { it.isNotBlank() } ?: nomeFamilia.trim()
+                            val famCodigo = famObj.optString("codigo_convite").takeIf { it.isNotBlank() } ?: ""
+                            GerenciadorSessao.obterInstancia().salvarFamiliaAtiva(famId, famNome, famCodigo)
+                        }
+                    } catch (_: Exception) {}
                 }
 
                 ClienteSupabase.client.auth.signInWith(Email) {
@@ -131,9 +171,10 @@ class LoginViewModel : ViewModel() {
                     password = senhaDigitada
                 }
                 try {
-                    GerenciadorSessao.obterInstancia().salvarUltimoEmail(emailDigitado)
+                    GerenciadorSessao.obterInstancia().salvarUltimoEmail(emailDigitado.trim())
                 } catch (_: Exception) {}
 
+                sincronizarTenantPorEmail(emailDigitado.trim())
                 _usuarioAutenticado.value = true
             } catch (e: Exception) {
                 _mensagemErro.value = e.message ?: "Não foi possível concluir o cadastro da família."
@@ -144,14 +185,17 @@ class LoginViewModel : ViewModel() {
     }
 
     fun fazerLogout() {
+        _usuarioAutenticado.value = false
+        _mensagemErro.value = null
+        try {
+            kotlinx.coroutines.runBlocking {
+                GerenciadorSessao.obterInstancia().deleteSession()
+            }
+        } catch (_: Exception) {}
         viewModelScope.launch {
             try {
                 ClienteSupabase.client.auth.signOut()
             } catch (_: Exception) {}
-            try {
-                GerenciadorSessao.obterInstancia().deleteSession()
-            } catch (_: Exception) {}
-            _usuarioAutenticado.value = false
         }
     }
 
