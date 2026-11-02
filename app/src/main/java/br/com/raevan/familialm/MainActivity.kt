@@ -18,13 +18,14 @@ import br.com.raevan.familialm.nucleo.tema.TemaHomeHub
 class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        try {
+            enableEdgeToEdge()
+        } catch (_: Throwable) {}
 
-        // Inicializar Canais de Notificação (Medicamentos e Rotinas)
-        GerenciadorNotificacoes.inicializarCanais(this)
-
-        // Agendar lembrete matinal diário de rotinas
-        GerenciadorNotificacoes.agendarLembreteRotinasDiarias(this, 8, 30)
+        try {
+            GerenciadorNotificacoes.inicializarCanais(this)
+            GerenciadorNotificacoes.agendarLembreteRotinasDiarias(this, 8, 30)
+        } catch (_: Throwable) {}
 
         setContent {
             TemaHomeHub {
@@ -35,14 +36,16 @@ class MainActivity : FragmentActivity() {
                     ) { }
 
                     LaunchedEffect(Unit) {
-                        val temPermissao = ContextCompat.checkSelfPermission(
-                            this@MainActivity,
-                            Manifest.permission.POST_NOTIFICATIONS
-                        ) == PackageManager.PERMISSION_GRANTED
+                        try {
+                            val temPermissao = ContextCompat.checkSelfPermission(
+                                this@MainActivity,
+                                Manifest.permission.POST_NOTIFICATIONS
+                            ) == PackageManager.PERMISSION_GRANTED
 
-                        if (!temPermissao) {
-                            solicitadorNotificacao.launch(Manifest.permission.POST_NOTIFICATIONS)
-                        }
+                            if (!temPermissao) {
+                                solicitadorNotificacao.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            }
+                        } catch (_: Throwable) {}
                     }
                 }
 

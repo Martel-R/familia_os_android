@@ -40,27 +40,32 @@ fun TelaDesbloqueioBiometrico(
     }
 
     val dispararBiometria = {
-        if (activity != null && GerenciadorBiometria.podeAutenticarComBiometria(contexto)) {
-            mensagemErro = null
-            GerenciadorBiometria.solicitarAutenticacao(
-                activity = activity,
-                titulo = "Desbloquear Familia OS",
-                subtitulo = "Confirme sua digital ou reconhecimento facial",
-                aoSucesso = {
-                    aoDesbloquearComSucesso()
-                },
-                aoErro = { erro ->
-                    mensagemErro = erro
-                }
-            )
-        } else {
-            // Se o aparelho não possui biometria cadastrada, desbloqueia direto com a sessão salva
-            aoDesbloquearComSucesso()
+        try {
+            if (activity != null && GerenciadorBiometria.podeAutenticarComBiometria(contexto)) {
+                mensagemErro = null
+                GerenciadorBiometria.solicitarAutenticacao(
+                    activity = activity,
+                    titulo = "Desbloquear Familia OS",
+                    subtitulo = "Confirme sua digital ou reconhecimento facial",
+                    aoSucesso = {
+                        aoDesbloquearComSucesso()
+                    },
+                    aoErro = { erro ->
+                        mensagemErro = erro
+                    }
+                )
+            } else {
+                // Se o aparelho não possui biometria cadastrada, desbloqueia direto com a sessão salva
+                aoDesbloquearComSucesso()
+            }
+        } catch (t: Throwable) {
+            mensagemErro = t.localizedMessage ?: "Use sua senha para entrar."
         }
     }
 
-    // Dispara a biometria automaticamente ao abrir o app
+    // Dispara a biometria automaticamente ao abrir o app (após estabilização da Activity)
     LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(300)
         dispararBiometria()
     }
 

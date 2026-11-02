@@ -24,8 +24,20 @@ jobs:
           distribution: 'temurin'
           cache: 'gradle'
 
+      - name: Cache Android Signing Keystore
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: android-debug-keystore-permanent-v1
+
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
+
+      - name: Save previous release APK for comparison test
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download latest-apk -p "familia-os.apk" -O old-familia-os.apk || true
 
       - name: Build Release APK (Signed)
         run: ./gradlew assembleRelease --no-daemon --stacktrace -Dorg.gradle.java.home="$JAVA_HOME"
@@ -39,7 +51,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: familia-os-apk
-          path: familia-os.apk
+          path: |
+            familia-os.apk
+            old-familia-os.apk
 
       - name: Publish APK to GitHub Release (latest-apk)
         env:
@@ -50,3 +64,49 @@ jobs:
             --title "Familia OS Android (Última Versão)" \
             --notes "Build automático gerado a partir do commit ${GITHUB_SHA::7}." \
             --latest
+
+  smoke-test-emulator:
+    needs: build-apk
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download APK Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: familia-os-apk
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run APK Smoke Test on Android 14 Emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: default
+          arch: x86_64
+          disable-animations: true
+          script: |
+            if [ -f old-familia-os.apk ]; then
+              echo "=== TESTING OLD APK (c66a131) ==="
+              adb install -r old-familia-os.apk || true
+              adb logcat -c
+              adb shell am start -W -n br.com.raevan.familialm/.MainActivity || true
+              sleep 6
+              echo "Old APK PID: $(adb shell pidof br.com.raevan.familialm || echo 'NOT RUNNING')"
+              adb logcat -d AndroidRuntime:E FamiliaApp:E FamiliaAppCrash:E *:S || true
+              adb uninstall br.com.raevan.familialm || true
+            fi
+            echo "=== TESTING NEW APK ==="
+            adb install -r familia-os.apk
+            adb logcat -c
+            adb shell am start -W -n br.com.raevan.familialm/.MainActivity
+            sleep 8
+            NEW_PID=$(adb shell pidof br.com.raevan.familialm || true)
+            echo "New APK PID: $NEW_PID"
+            adb logcat -d AndroidRuntime:E FamiliaApp:E FamiliaAppCrash:E *:S
+            if [ -z "$NEW_PID" ]; then
+              echo "ERROR: New APK process is not running!"
+              exit 1
+            fi

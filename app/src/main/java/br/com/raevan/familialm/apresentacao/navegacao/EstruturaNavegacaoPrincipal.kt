@@ -62,7 +62,7 @@ fun EstruturaNavegacaoPrincipal() {
     val sessaoExiste = remember {
         try {
             GerenciadorSessao.obterInstancia().temSessaoSalva() || ClienteSupabase.client.auth.currentSessionOrNull() != null
-        } catch (_: Exception) {
+        } catch (_: Throwable) {
             false
         }
     }

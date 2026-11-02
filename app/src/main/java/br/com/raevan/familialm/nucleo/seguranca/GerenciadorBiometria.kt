@@ -25,7 +25,7 @@ object GerenciadorBiometria {
             val biometricManager = BiometricManager.from(context)
             val status = biometricManager.canAuthenticate(obterAutenticadoresPermitidos())
             status == BiometricManager.BIOMETRIC_SUCCESS
-        } catch (_: Exception) {
+        } catch (_: Throwable) {
             false
         }
     }
