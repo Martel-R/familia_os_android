@@ -3,6 +3,7 @@ package br.com.raevan.familialm.apresentacao.rotinas
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import br.com.raevan.familialm.dominio.modelos.ItemLojaPrivilegio
+import br.com.raevan.familialm.dominio.modelos.RecorrenciaTarefa
 import br.com.raevan.familialm.dominio.modelos.TarefaRotina
 import br.com.raevan.familialm.dominio.modelos.Usuario
 import br.com.raevan.familialm.nucleo.di.ProvedorDependencias
@@ -81,7 +82,45 @@ class RotinasViewModel : ViewModel() {
             val sucesso = repositorioRotinas.resgatarItemLoja(usuario.id, item.id)
             if (sucesso) {
                 _estado.update { it.copy(mensagemSucesso = "Privilégio '${item.titulo}' resgatado com sucesso! Aproveite!") }
+                observarDados()
             }
+        }
+    }
+
+    fun adicionarNovaTarefa(
+        titulo: String,
+        responsavelId: String?,
+        recorrencia: RecorrenciaTarefa,
+        moedasRecompensa: Int,
+        abertaParaTodos: Boolean
+    ) {
+        if (titulo.isBlank()) return
+        viewModelScope.launch {
+            repositorioRotinas.adicionarTarefa(
+                titulo = titulo,
+                responsavelId = responsavelId,
+                recorrencia = recorrencia,
+                diasSemana = null,
+                diaMes = null,
+                moedasRecompensa = moedasRecompensa,
+                abertaParaTodos = abertaParaTodos
+            )
+            _estado.update { it.copy(mensagemSucesso = "Tarefa '$titulo' criada com sucesso!") }
+            observarDados()
+        }
+    }
+
+    fun adicionarNovoItemLoja(titulo: String, descricao: String, custoMoedas: Int) {
+        if (titulo.isBlank()) return
+        viewModelScope.launch {
+            repositorioRotinas.adicionarItemLoja(
+                titulo = titulo,
+                descricao = descricao,
+                custoMoedas = custoMoedas,
+                icone = "🎁"
+            )
+            _estado.update { it.copy(mensagemSucesso = "Privilégio '$titulo' adicionado à loja!") }
+            observarDados()
         }
     }
 

@@ -52,4 +52,12 @@ class MuralViewModel : ViewModel() {
             repositorioMural.adicionarReacao(conquistaId)
         }
     }
+
+    fun adicionarNovaConquista(titulo: String, descricao: String?) {
+        if (titulo.isBlank()) return
+        viewModelScope.launch {
+            repositorioMural.adicionarConquista(titulo, descricao, null)
+            observarDados()
+        }
+    }
 }

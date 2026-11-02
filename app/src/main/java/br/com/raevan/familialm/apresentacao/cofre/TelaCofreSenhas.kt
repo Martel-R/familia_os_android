@@ -144,7 +144,10 @@ fun TelaCofreSenhas(
 
                     items(compartilhadas.size) { indice ->
                         val cred = compartilhadas[indice]
-                        ItemCardCredencial(credencial = cred)
+                        ItemCardCredencial(
+                            credencial = cred,
+                            aoExcluir = { viewModel.excluirCredencial(cred.id) }
+                        )
                     }
                 }
 
@@ -264,15 +267,23 @@ fun TelaCofreSenhas(
 
                         items(masters.size) { indice ->
                             val cred = masters[indice]
-                            ItemCardCredencial(credencial = cred)
+                            ItemCardCredencial(
+                                credencial = cred,
+                                aoExcluir = { viewModel.excluirCredencial(cred.id) }
+                            )
                         }
                     }
                 }
 
-                2 -> { // Rede Wi-Fi Familiar
+                2 -> { // Rede Wi-Fi Familiar (Multi-Tenant)
                     val wifi = estado.redeWifi
                     if (wifi != null) {
                         item {
+                            var editandoWifi by remember { mutableStateOf(false) }
+                            var ssidEdit by remember(wifi.nomeRedeSsid) { mutableStateOf(wifi.nomeRedeSsid) }
+                            var senhaEdit by remember(wifi.senhaRede) { mutableStateOf(wifi.senhaRede) }
+                            var segurancaEdit by remember(wifi.tipoSeguranca) { mutableStateOf(wifi.tipoSeguranca) }
+
                             Card(
                                 shape = RoundedCornerShape(16.dp),
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -280,30 +291,79 @@ fun TelaCofreSenhas(
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Column(modifier = Modifier.padding(20.dp)) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Default.Wifi, contentDescription = null, tint = VerdeEsmeralda, modifier = Modifier.size(28.dp))
-                                        Spacer(modifier = Modifier.width(10.dp))
-                                        Column {
-                                            Text(text = "Rede Wi-Fi Visitantes", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                                            Text(text = "Compartilhamento rápido sem senha verbal", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                            Icon(Icons.Default.Wifi, contentDescription = null, tint = VerdeEsmeralda, modifier = Modifier.size(28.dp))
+                                            Spacer(modifier = Modifier.width(10.dp))
+                                            Column {
+                                                Text(text = "Rede Wi-Fi da Família", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                                Text(text = "Configuração isolada por família no Supabase", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            }
+                                        }
+                                        IconButton(onClick = { editandoWifi = !editandoWifi }) {
+                                            Icon(
+                                                imageVector = if (editandoWifi) Icons.Default.Close else Icons.Default.Edit,
+                                                contentDescription = "Editar Wi-Fi",
+                                                tint = AzulPrimario
+                                            )
                                         }
                                     }
 
                                     Spacer(modifier = Modifier.height(16.dp))
 
-                                    Surface(
-                                        color = MaterialTheme.colorScheme.surfaceVariant,
-                                        shape = RoundedCornerShape(12.dp),
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        Column(modifier = Modifier.padding(14.dp)) {
-                                            Text(text = "SSID (Nome da Rede):", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                            Text(text = wifi.nomeRedeSsid, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                                            Spacer(modifier = Modifier.height(10.dp))
-                                            Text(text = "Senha:", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                            Text(text = wifi.senhaRede, fontWeight = FontWeight.Bold, fontSize = 17.sp, color = VerdeEsmeralda)
-                                            Spacer(modifier = Modifier.height(4.dp))
-                                            Text(text = "Segurança: ${wifi.tipoSeguranca}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    if (!editandoWifi) {
+                                        Surface(
+                                            color = MaterialTheme.colorScheme.surfaceVariant,
+                                            shape = RoundedCornerShape(12.dp),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Column(modifier = Modifier.padding(14.dp)) {
+                                                Text(text = "SSID (Nome da Rede):", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                Text(text = wifi.nomeRedeSsid, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                                Spacer(modifier = Modifier.height(10.dp))
+                                                Text(text = "Senha:", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                Text(text = wifi.senhaRede, fontWeight = FontWeight.Bold, fontSize = 17.sp, color = VerdeEsmeralda)
+                                                Spacer(modifier = Modifier.height(4.dp))
+                                                Text(text = "Segurança: ${wifi.tipoSeguranca}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            }
+                                        }
+                                    } else {
+                                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                            OutlinedTextField(
+                                                value = ssidEdit,
+                                                onValueChange = { ssidEdit = it },
+                                                label = { Text("Nome da Rede (SSID)") },
+                                                singleLine = true,
+                                                modifier = Modifier.fillMaxWidth()
+                                            )
+                                            OutlinedTextField(
+                                                value = senhaEdit,
+                                                onValueChange = { senhaEdit = it },
+                                                label = { Text("Senha do Wi-Fi") },
+                                                singleLine = true,
+                                                modifier = Modifier.fillMaxWidth()
+                                            )
+                                            OutlinedTextField(
+                                                value = segurancaEdit,
+                                                onValueChange = { segurancaEdit = it },
+                                                label = { Text("Tipo de Segurança (ex: WPA2/WPA3)") },
+                                                singleLine = true,
+                                                modifier = Modifier.fillMaxWidth()
+                                            )
+                                            Button(
+                                                onClick = {
+                                                    viewModel.salvarRedeWifi(ssidEdit, senhaEdit, segurancaEdit)
+                                                    editandoWifi = false
+                                                },
+                                                colors = ButtonDefaults.buttonColors(containerColor = VerdeEsmeralda),
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                Text("Salvar Wi-Fi da Família")
+                                            }
                                         }
                                     }
                                 }
@@ -329,7 +389,10 @@ fun TelaCofreSenhas(
 }
 
 @Composable
-fun ItemCardCredencial(credencial: CredencialCofre) {
+fun ItemCardCredencial(
+    credencial: CredencialCofre,
+    aoExcluir: () -> Unit = {}
+) {
     val contexto = LocalContext.current
     val activity = contexto as? FragmentActivity
     var exibirSenha by remember { mutableStateOf(false) }
@@ -468,6 +531,13 @@ fun ItemCardCredencial(credencial: CredencialCofre) {
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+                IconButton(onClick = { aoExcluir() }) {
+                    Icon(
+                        imageVector = Icons.Default.DeleteOutline,
+                        contentDescription = "Excluir Credencial",
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                }
             }
 
             if (!credencial.notasSeguras.isNullOrBlank()) {
@@ -497,6 +567,20 @@ fun DialogoNovaCredencial(
         title = { Text("Nova Credencial", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = nivel == NivelCofre.COMPARTILHADO,
+                        onClick = { nivel = NivelCofre.COMPARTILHADO },
+                        label = { Text("Compartilhado") },
+                        modifier = Modifier.weight(1f)
+                    )
+                    FilterChip(
+                        selected = nivel == NivelCofre.MASTER,
+                        onClick = { nivel = NivelCofre.MASTER },
+                        label = { Text("Master 🔒") },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
                 OutlinedTextField(
                     value = titulo,
                     onValueChange = { titulo = it },

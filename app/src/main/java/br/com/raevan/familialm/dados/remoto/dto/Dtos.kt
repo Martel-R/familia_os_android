@@ -277,3 +277,11 @@ data class ItemCompraExtraidoDto(
     @SerialName("valor_unitario") val valorUnitario: Double,
     @SerialName("categoria_sugerida") val categoriaSugerida: String? = null
 )
+
+@Serializable
+data class ConfiguracaoCasaDto(
+    val chave: String,
+    val valor: String,
+    val descricao: String? = null,
+    @SerialName("familia_id") val familiaId: String? = null
+)

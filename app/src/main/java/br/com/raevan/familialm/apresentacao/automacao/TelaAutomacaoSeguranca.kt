@@ -72,44 +72,153 @@ fun TelaAutomacaoSeguranca(
                     Tab(
                         selected = estado.abaSelecionada == 0,
                         onClick = { viewModel.selecionarAba(0) },
-                        text = { Text("Dispositivos IoT", fontSize = 12.sp) }
+                        text = { Text("Dispositivos IoT", fontSize = 11.sp) }
                     )
                     Tab(
                         selected = estado.abaSelecionada == 1,
                         onClick = { viewModel.selecionarAba(1) },
-                        text = { Text("Câmeras NVR / Frigate", fontSize = 12.sp) }
+                        text = { Text("Câmeras NVR", fontSize = 11.sp) }
+                    )
+                    Tab(
+                        selected = estado.abaSelecionada == 2,
+                        onClick = { viewModel.selecionarAba(2) },
+                        text = { Text("WhatsApp 💬", fontSize = 11.sp) }
                     )
                 }
             }
 
-            if (estado.abaSelecionada == 0) {
-                item {
-                    Text(
-                        text = "Controle em tempo real dos ambientes da casa:",
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+            when (estado.abaSelecionada) {
+                0 -> {
+                    item {
+                        Text(
+                            text = "Controle em tempo real dos ambientes da casa:",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
 
-                items(estado.dispositivos.size) { indice ->
-                    val disp = estado.dispositivos[indice]
-                    ItemCardDispositivo(
-                        dispositivo = disp,
-                        aoAlternar = { viewModel.alternarDispositivo(disp.id) }
-                    )
+                    items(estado.dispositivos.size) { indice ->
+                        val disp = estado.dispositivos[indice]
+                        ItemCardDispositivo(
+                            dispositivo = disp,
+                            aoAlternar = { viewModel.alternarDispositivo(disp.id) }
+                        )
+                    }
                 }
-            } else {
-                item {
-                    Text(
-                        text = "Monitoramento perimetral com IA local (detecção de pessoas e veículos):",
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                1 -> {
+                    item {
+                        Text(
+                            text = "Monitoramento perimetral com IA local (detecção de pessoas e veículos):",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
 
-                items(estado.cameras.size) { indice ->
-                    val camera = estado.cameras[indice]
-                    ItemCardCamera(camera = camera)
+                    items(estado.cameras.size) { indice ->
+                        val camera = estado.cameras[indice]
+                        ItemCardCamera(camera = camera)
+                    }
+                }
+                2 -> {
+                    item {
+                        var urlInput by remember(estado.configWhatsapp.url) { mutableStateOf(estado.configWhatsapp.url) }
+                        var apiKeyInput by remember(estado.configWhatsapp.apiKey) { mutableStateOf(estado.configWhatsapp.apiKey) }
+                        var instanceInput by remember(estado.configWhatsapp.instance) { mutableStateOf(estado.configWhatsapp.instance) }
+
+                        Card(
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column {
+                                        Text(
+                                            text = "Evolution API (WhatsApp da Família)",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 16.sp
+                                        )
+                                        Text(
+                                            text = "Instância isolada por família para convites e alertas",
+                                            fontSize = 12.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = if (estado.configWhatsapp.statusConexao == "open") VerdeEsmeraldaClaro else Color(0xFFFFF3E0)
+                                    ) {
+                                        Text(
+                                            text = if (estado.configWhatsapp.statusConexao == "open") "Conectado" else estado.configWhatsapp.statusConexao,
+                                            color = if (estado.configWhatsapp.statusConexao == "open") VerdeEsmeralda else Color(0xFFE65100),
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 11.sp,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                        )
+                                    }
+                                }
+
+                                estado.mensagemFeedback?.let { msg ->
+                                    Text(
+                                        text = msg,
+                                        color = VerdeEsmeralda,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 12.sp
+                                    )
+                                }
+
+                                OutlinedTextField(
+                                    value = urlInput,
+                                    onValueChange = { urlInput = it },
+                                    label = { Text("URL da Evolution API") },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+
+                                OutlinedTextField(
+                                    value = instanceInput,
+                                    onValueChange = { instanceInput = it },
+                                    label = { Text("Nome da Instância da Família") },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+
+                                OutlinedTextField(
+                                    value = apiKeyInput,
+                                    onValueChange = { apiKeyInput = it },
+                                    label = { Text("API Key Global / Instância") },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    OutlinedButton(
+                                        onClick = { viewModel.carregarConfigWhatsapp() },
+                                        enabled = !estado.carregandoWhatsapp,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text("Verificar Status")
+                                    }
+                                    Button(
+                                        onClick = { viewModel.salvarConfigWhatsapp(urlInput, apiKeyInput, instanceInput) },
+                                        enabled = !estado.carregandoWhatsapp,
+                                        colors = ButtonDefaults.buttonColors(containerColor = VerdeEsmeralda),
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text(if (estado.carregandoWhatsapp) "Salvando..." else "Salvar")
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
 

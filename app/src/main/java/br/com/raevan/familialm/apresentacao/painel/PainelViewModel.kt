@@ -10,6 +10,7 @@ import kotlinx.coroutines.launch
 data class EstadoPainel(
     val carregando: Boolean = false,
     val usuarioLogado: Usuario? = null,
+    val familiaAtiva: Familia? = null,
     val resumoFinanceiro: ResumoFinanceiro = ResumoFinanceiro(0.0, 0.0, 0.0, 0.0, 0.0),
     val tarefasDoDia: List<TarefaRotina> = emptyList(),
     val proximoEvento: Evento? = null,
@@ -37,10 +38,11 @@ class PainelViewModel : ViewModel() {
         viewModelScope.launch {
             val fluxoGrupo1 = combine(
                 repositorioUsuarios.obterUsuarioLogado(),
+                repositorioUsuarios.obterFamiliaAtiva(),
                 repositorioFinancas.obterResumoFinanceiro(),
                 repositorioRotinas.listarTarefas()
-            ) { usuario, resumo, tarefas ->
-                Triple(usuario, resumo, tarefas)
+            ) { usuario, familia, resumo, tarefas ->
+                 Pair(Pair(usuario, familia), Pair(resumo, tarefas))
             }
 
             val fluxoGrupo2 = combine(
@@ -52,12 +54,14 @@ class PainelViewModel : ViewModel() {
             }
 
             combine(fluxoGrupo1, fluxoGrupo2) { grupo1, grupo2 ->
-                val (usuario, resumo, tarefas) = grupo1
+                val (usuario, familia) = grupo1.first
+                val (resumo, tarefas) = grupo1.second
                 val (eventos, dispositivos, wifi) = grupo2
 
                 EstadoPainel(
                     carregando = false,
                     usuarioLogado = usuario,
+                    familiaAtiva = familia,
                     resumoFinanceiro = resumo,
                     tarefasDoDia = tarefas.take(4),
                     proximoEvento = eventos.firstOrNull(),
@@ -68,6 +72,10 @@ class PainelViewModel : ViewModel() {
                 _estado.value = novoEstado
             }
         }
+    }
+
+    fun recarregarPainel() {
+        observarDados()
     }
 
     fun alternarConclusaoTarefa(tarefaId: String) {

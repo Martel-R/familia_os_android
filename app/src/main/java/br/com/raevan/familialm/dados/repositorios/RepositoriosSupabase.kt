@@ -13,6 +13,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
 import java.util.UUID
 
 class RepositorioUsuariosSupabase : RepositorioUsuarios {
@@ -77,6 +80,268 @@ class RepositorioUsuariosSupabase : RepositorioUsuarios {
         emit(filtrados.map { it.paraDominio() })
     }.flowOn(Dispatchers.IO)
 
+    override fun listarTodosMembrosFamilia(incluirInativos: Boolean): Flow<List<Usuario>> = flow {
+        val dtos = ClienteSupabase.client.from("usuarios")
+            .select {
+                if (!incluirInativos) filter { eq("ativo", true) }
+                order("nome", Order.ASCENDING)
+            }
+            .decodeList<UsuarioDto>()
+
+        val familiaAtivaId = try {
+            GerenciadorSessao.obterInstancia().obterFamiliaIdAtiva()
+        } catch (_: Exception) {
+            GerenciadorSessao.DEFAULT_FAMILIA_ID
+        }
+
+        val filtrados = dtos.filter { dto ->
+            dto.familiaId == null || dto.familiaId == familiaAtivaId
+        }
+
+        emit(filtrados.map { it.paraDominio() })
+    }.flowOn(Dispatchers.IO)
+
+    override fun obterFamiliaAtiva(): Flow<Familia> = flow {
+        val sessao = try { GerenciadorSessao.obterInstancia() } catch (_: Exception) { null }
+        val familiaIdSalva = sessao?.obterFamiliaIdAtiva() ?: GerenciadorSessao.DEFAULT_FAMILIA_ID
+
+        val dto = try {
+            ClienteSupabase.client.from("familias")
+                .select { filter { eq("id", familiaIdSalva) } }
+                .decodeSingleOrNull<FamiliaDto>()
+        } catch (_: Exception) {
+            null
+        }
+
+        val familia = if (dto != null) {
+            sessao?.salvarFamiliaAtiva(dto.id, dto.nome, dto.codigoConvite ?: "MARTEL")
+            Familia(
+                id = dto.id,
+                nome = dto.nome,
+                codigoConvite = dto.codigoConvite ?: "MARTEL",
+                plano = dto.plano
+            )
+        } else {
+            Familia(
+                id = familiaIdSalva,
+                nome = sessao?.obterNomeFamiliaAtiva() ?: "Família Martel",
+                codigoConvite = sessao?.obterCodigoConviteAtivo() ?: "MARTEL"
+            )
+        }
+
+        emit(familia)
+    }.flowOn(Dispatchers.IO)
+
+    override suspend fun atualizarNomeFamilia(familiaId: String, novoNome: String): Boolean = withContext(Dispatchers.IO) {
+        val limpo = novoNome.trim()
+        if (limpo.isBlank()) return@withContext false
+
+        var atualizado = false
+        try {
+            ClienteSupabase.client.from("familias")
+                .update({ set("nome", limpo) }) {
+                    filter { eq("id", familiaId) }
+                }
+            atualizado = true
+        } catch (_: Exception) {}
+
+        if (!atualizado) {
+            try {
+                val conn = (URL("https://familia.martel.page/api/tenant").openConnection() as HttpURLConnection).apply {
+                    requestMethod = "POST"
+                    setRequestProperty("Content-Type", "application/json")
+                    doOutput = true
+                    connectTimeout = 10000
+                    readTimeout = 10000
+                }
+                val payload = JSONObject().apply {
+                    put("acao", "atualizar_familia")
+                    put("familiaId", familiaId)
+                    put("nomeFamilia", limpo)
+                }
+                conn.outputStream.use { it.write(payload.toString().toByteArray(Charsets.UTF_8)) }
+                atualizado = conn.responseCode in 200..299
+            } catch (_: Exception) {}
+        }
+
+        try {
+            val sessao = GerenciadorSessao.obterInstancia()
+            sessao.salvarFamiliaAtiva(familiaId, limpo, sessao.obterCodigoConviteAtivo())
+        } catch (_: Exception) {}
+
+        atualizado
+    }
+
+    override suspend fun vincularPorCodigoConvite(usuarioId: String, codigoConvite: String): Familia? = withContext(Dispatchers.IO) {
+        val codigo = codigoConvite.trim().uppercase()
+        if (codigo.isBlank()) return@withContext null
+
+        try {
+            val famDto = ClienteSupabase.client.from("familias")
+                .select { filter { eq("codigo_convite", codigo) } }
+                .decodeSingleOrNull<FamiliaDto>()
+
+            if (famDto != null) {
+                ClienteSupabase.client.from("usuarios")
+                    .update({ set("familia_id", famDto.id) }) {
+                        filter { eq("id", usuarioId) }
+                    }
+                try {
+                    GerenciadorSessao.obterInstancia().salvarFamiliaAtiva(
+                        familiaId = famDto.id,
+                        nomeFamilia = famDto.nome,
+                        codigoConvite = famDto.codigoConvite ?: codigo
+                    )
+                } catch (_: Exception) {}
+                return@withContext Familia(
+                    id = famDto.id,
+                    nome = famDto.nome,
+                    codigoConvite = famDto.codigoConvite ?: codigo,
+                    plano = famDto.plano
+                )
+            }
+        } catch (_: Exception) {}
+
+        try {
+            val conn = (URL("https://familia.martel.page/api/tenant").openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                setRequestProperty("Content-Type", "application/json")
+                doOutput = true
+                connectTimeout = 10000
+                readTimeout = 10000
+            }
+            val payload = JSONObject().apply {
+                put("acao", "vincular_convite")
+                put("usuarioId", usuarioId)
+                put("codigoConvite", codigo)
+            }
+            conn.outputStream.use { it.write(payload.toString().toByteArray(Charsets.UTF_8)) }
+            if (conn.responseCode in 200..299) {
+                val respStr = conn.inputStream.bufferedReader().use { it.readText() }
+                val famObj = JSONObject(respStr).optJSONObject("familia")
+                if (famObj != null) {
+                    val fam = Familia(
+                        id = famObj.optString("id"),
+                        nome = famObj.optString("nome", "Minha Família"),
+                        codigoConvite = famObj.optString("codigo_convite", codigo)
+                    )
+                    try {
+                        GerenciadorSessao.obterInstancia().salvarFamiliaAtiva(fam.id, fam.nome, fam.codigoConvite ?: codigo)
+                    } catch (_: Exception) {}
+                    return@withContext fam
+                }
+            }
+        } catch (_: Exception) {}
+
+        null
+    }
+
+    override suspend fun criarMembroFamilia(
+        nome: String,
+        email: String,
+        senha: String,
+        perfil: TipoPerfil,
+        avatarEmoji: String?,
+        saldoMoedas: Int
+    ): Result<Usuario> = withContext(Dispatchers.IO) {
+        val familiaId = try {
+            GerenciadorSessao.obterInstancia().obterFamiliaIdAtiva()
+        } catch (_: Exception) {
+            GerenciadorSessao.DEFAULT_FAMILIA_ID
+        }
+        val perfilBanco = when (perfil) {
+            TipoPerfil.PAI_ADMIN -> "pai_admin"
+            TipoPerfil.FILHO_MEMBRO -> "filho_membro"
+            TipoPerfil.CUIDADOR -> "cuidador"
+        }
+
+        try {
+            val conn = (URL("https://familia.martel.page/api/admin/users").openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                setRequestProperty("Content-Type", "application/json")
+                doOutput = true
+                connectTimeout = 15000
+                readTimeout = 15000
+            }
+            val payload = JSONObject().apply {
+                put("email", email.trim())
+                put("password", senha)
+                put("nome", nome.trim())
+                put("perfil", perfilBanco)
+                put("avatar_emoji", avatarEmoji ?: "👤")
+                put("saldo_moedas", saldoMoedas)
+                put("familia_id", familiaId)
+            }
+            conn.outputStream.use { it.write(payload.toString().toByteArray(Charsets.UTF_8)) }
+            val status = conn.responseCode
+            val respTexto = (if (status in 200..299) conn.inputStream else conn.errorStream)
+                ?.bufferedReader()?.use { it.readText() } ?: "{}"
+
+            if (status in 200..299) {
+                val jsonObj = JSONObject(respTexto).optJSONObject("user")
+                val idCriado = jsonObj?.optString("id")?.takeIf { it.isNotBlank() } ?: UUID.randomUUID().toString()
+                return@withContext Result.success(
+                    Usuario(
+                        id = idCriado,
+                        nome = nome.trim(),
+                        perfil = perfil,
+                        saldoMoedas = saldoMoedas,
+                        avatarUrl = avatarEmoji,
+                        familiaId = familiaId,
+                        email = email.trim(),
+                        ativo = true
+                    )
+                )
+            }
+        } catch (_: Exception) {}
+
+        return@withContext try {
+            val novoId = UUID.randomUUID().toString()
+            val dto = UsuarioDto(
+                id = novoId,
+                familiaId = familiaId,
+                email = email.trim(),
+                nome = nome.trim(),
+                perfil = perfilBanco,
+                saldoMoedas = saldoMoedas,
+                avatarUrl = avatarEmoji,
+                ativo = true
+            )
+            ClienteSupabase.client.from("usuarios").insert(dto)
+            Result.success(dto.paraDominio())
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun atualizarMembroFamilia(
+        usuarioId: String,
+        nome: String,
+        perfil: TipoPerfil,
+        avatarEmoji: String?,
+        ativo: Boolean
+    ): Boolean = withContext(Dispatchers.IO) {
+        val perfilBanco = when (perfil) {
+            TipoPerfil.PAI_ADMIN -> "pai_admin"
+            TipoPerfil.FILHO_MEMBRO -> "filho_membro"
+            TipoPerfil.CUIDADOR -> "cuidador"
+        }
+        try {
+            ClienteSupabase.client.from("usuarios")
+                .update({
+                    set("nome", nome.trim())
+                    set("perfil", perfilBanco)
+                    if (!avatarEmoji.isNullOrBlank()) set("avatar_url", avatarEmoji)
+                    set("ativo", ativo)
+                }) {
+                    filter { eq("id", usuarioId) }
+                }
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     override suspend fun atualizarSaldoMoedas(usuarioId: String, deltaMoedas: Int) = withContext(Dispatchers.IO) {
         val atual = ClienteSupabase.client.from("usuarios")
             .select {
@@ -105,7 +370,8 @@ class RepositorioUsuariosSupabase : RepositorioUsuarios {
         avatarUrl = avatarUrl,
         criadoEm = criadoEm,
         familiaId = familiaId,
-        email = email
+        email = email,
+        ativo = ativo
     )
 }
 
@@ -309,6 +575,54 @@ class RepositorioRotinasSupabase(
         true
     }
 
+    override suspend fun adicionarTarefa(
+        titulo: String,
+        responsavelId: String?,
+        recorrencia: RecorrenciaTarefa,
+        diasSemana: String?,
+        diaMes: Int?,
+        moedasRecompensa: Int,
+        abertaParaTodos: Boolean
+    ) = withContext(Dispatchers.IO) {
+        val dto = TarefaRotinaDto(
+            id = UUID.randomUUID().toString(),
+            titulo = titulo.trim(),
+            responsavelId = if (abertaParaTodos) null else responsavelId,
+            recorrencia = when (recorrencia) {
+                RecorrenciaTarefa.SEMANAL -> "semanal"
+                RecorrenciaTarefa.MENSAL -> "mensal"
+                RecorrenciaTarefa.UNICA -> "unica"
+                RecorrenciaTarefa.DIARIA -> "diaria"
+            },
+            diasSemana = diasSemana,
+            diaMes = diaMes,
+            moedasRecompensa = moedasRecompensa,
+            estaConcluida = false,
+            abertaParaTodos = abertaParaTodos
+        )
+        ClienteSupabase.client.from("tarefas_rotinas").insert(dto)
+        Unit
+    }
+
+    override suspend fun adicionarItemLoja(
+        titulo: String,
+        descricao: String,
+        custoMoedas: Int,
+        icone: String?
+    ) = withContext(Dispatchers.IO) {
+        val dto = ItemLojaDto(
+            id = UUID.randomUUID().toString(),
+            titulo = titulo.trim(),
+            descricao = descricao.trim(),
+            custoMoedas = custoMoedas,
+            icone = icone ?: "🎁",
+            estoqueDisponivel = -1,
+            ativo = true
+        )
+        ClienteSupabase.client.from("loja_privilegios").insert(dto)
+        Unit
+    }
+
     private fun TarefaRotinaDto.paraDominio() = TarefaRotina(
         id = id,
         titulo = titulo,
@@ -392,6 +706,41 @@ class RepositorioEventosSupabase : RepositorioEventos {
             observacoes = cotacao.observacoes
         )
         ClienteSupabase.client.from("cotacoes").insert(dto)
+        Unit
+    }
+
+    override suspend fun adicionarEvento(
+        nome: String,
+        dataEvento: String,
+        descricao: String?,
+        orcamentoEstimado: Double
+    ) = withContext(Dispatchers.IO) {
+        val dto = EventoDto(
+            id = UUID.randomUUID().toString(),
+            nome = nome.trim(),
+            dataEvento = dataEvento,
+            descricao = descricao?.takeIf { it.isNotBlank() },
+            orcamentoEstimado = orcamentoEstimado
+        )
+        ClienteSupabase.client.from("eventos").insert(dto)
+        Unit
+    }
+
+    override suspend fun adicionarConvidado(
+        eventoId: String,
+        nome: String,
+        telefone: String?,
+        restricoesAlimentares: String?
+    ) = withContext(Dispatchers.IO) {
+        val dto = ConvidadoDto(
+            id = UUID.randomUUID().toString(),
+            eventoId = eventoId,
+            nome = nome.trim(),
+            telefone = telefone?.takeIf { it.isNotBlank() },
+            status = "pendente",
+            restricoesAlimentares = restricoesAlimentares?.takeIf { it.isNotBlank() }
+        )
+        ClienteSupabase.client.from("convidados").insert(dto)
         Unit
     }
 
@@ -802,14 +1151,64 @@ class RepositorioCofreSupabase : RepositorioCofre {
     }.flowOn(Dispatchers.IO)
 
     override fun obterRedeWifiFamiliar(): Flow<RedeWifiFamiliar> = flow {
+        val familiaId = try {
+            GerenciadorSessao.obterInstancia().obterFamiliaIdAtiva()
+        } catch (_: Exception) {
+            GerenciadorSessao.DEFAULT_FAMILIA_ID
+        }
+        val chaveTenant = "WIFI_PRINCIPAL:$familiaId"
+
+        val config = try {
+            val todas = ClienteSupabase.client.from("configuracoes_casa")
+                .select()
+                .decodeList<ConfiguracaoCasaDto>()
+            todas.firstOrNull { it.chave == chaveTenant }
+                ?: todas.firstOrNull { it.chave == "WIFI_PRINCIPAL" }
+        } catch (_: Exception) {
+            null
+        }
+
+        val partes = config?.valor?.split("|") ?: emptyList()
+        val ssid = partes.getOrNull(0)?.takeIf { it.isNotBlank() } ?: "Familia_OS_5G"
+        val senha = partes.getOrNull(1)?.takeIf { it.isNotBlank() } ?: "FamiliaSegura2026"
+        val seguranca = partes.getOrNull(2)?.takeIf { it.isNotBlank() } ?: "WPA2/WPA3"
+
         emit(
             RedeWifiFamiliar(
-                nomeRedeSsid = "Familia_OS_5G",
-                senhaRede = "FamiliaSegura2026",
-                tipoSeguranca = "WPA2/WPA3",
+                nomeRedeSsid = ssid,
+                senhaRede = senha,
+                tipoSeguranca = seguranca,
                 ehRedeVisitantes = false
             )
         )
+    }.flowOn(Dispatchers.IO)
+
+    override suspend fun salvarRedeWifiFamiliar(wifi: RedeWifiFamiliar) = withContext(Dispatchers.IO) {
+        val familiaId = try {
+            GerenciadorSessao.obterInstancia().obterFamiliaIdAtiva()
+        } catch (_: Exception) {
+            GerenciadorSessao.DEFAULT_FAMILIA_ID
+        }
+        val chaveTenant = "WIFI_PRINCIPAL:$familiaId"
+        val valorFormatado = "${wifi.nomeRedeSsid.trim()}|${wifi.senhaRede.trim()}|${wifi.tipoSeguranca.trim()}"
+
+        val dto = ConfiguracaoCasaDto(
+            chave = chaveTenant,
+            valor = valorFormatado,
+            descricao = "Configuração Wi-Fi da Família ($familiaId)",
+            familiaId = familiaId
+        )
+        ClienteSupabase.client.from("configuracoes_casa").upsert(dto) {
+            onConflict = "chave"
+        }
+        Unit
+    }
+
+    override suspend fun excluirCredencial(credencialId: String) = withContext(Dispatchers.IO) {
+        ClienteSupabase.client.from("cofre_credenciais").delete {
+            filter { eq("id", credencialId) }
+        }
+        Unit
     }
 
     override suspend fun adicionarCredencial(credencial: CredencialCofre) = withContext(Dispatchers.IO) {
@@ -852,6 +1251,22 @@ class RepositorioMuralSupabase : RepositorioMural {
     }
 
     override suspend fun adicionarReacao(conquistaId: String) {}
+
+    override suspend fun adicionarConquista(
+        titulo: String,
+        descricao: String?,
+        usuarioId: String?
+    ) = withContext(Dispatchers.IO) {
+        val dto = ConquistaMuralDto(
+            id = UUID.randomUUID().toString(),
+            titulo = titulo.trim(),
+            descricao = descricao?.takeIf { it.isNotBlank() },
+            usuarioId = usuarioId,
+            dataConquista = java.time.LocalDate.now().toString()
+        )
+        ClienteSupabase.client.from("mural_conquistas").insert(dto)
+        Unit
+    }
 
     private fun ConquistaMuralDto.paraDominio() = ConquistaMural(
         id = id,

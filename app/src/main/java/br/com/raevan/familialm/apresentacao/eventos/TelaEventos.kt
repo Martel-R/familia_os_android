@@ -36,6 +36,8 @@ fun TelaEventos(
 ) {
     val estado by viewModel.estado.collectAsState()
     val eventoAtivo = estado.eventos.find { it.id == estado.eventoSelecionadoId }
+    var exibirDialogoNovoEvento by remember { mutableStateOf(false) }
+    var exibirDialogoItemAba by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -48,7 +50,7 @@ fun TelaEventos(
                             fontSize = 20.sp
                         )
                         Text(
-                            text = "RSVP de convidados e cotações de fornecedores",
+                            text = "RSVP de convidados, WhatsApp e cotações",
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -59,8 +61,24 @@ fun TelaEventos(
                         Icon(Icons.Default.ArrowBack, contentDescription = "Voltar")
                     }
                 },
+                actions = {
+                    IconButton(onClick = { exibirDialogoNovoEvento = true }) {
+                        Icon(Icons.Default.EventAvailable, contentDescription = "Novo Evento", tint = CorEventos)
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
+        },
+        floatingActionButton = {
+            if (eventoAtivo != null) {
+                FloatingActionButton(
+                    onClick = { exibirDialogoItemAba = true },
+                    containerColor = CorEventos,
+                    contentColor = Color.White
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Adicionar Convidado ou Cotação")
+                }
+            }
         }
     ) { preenchimento ->
         LazyColumn(
@@ -194,7 +212,8 @@ fun TelaEventos(
                         val cnv = estado.convidados[indice]
                         ItemCardConvidado(
                             convidado = cnv,
-                            aoAlternarStatus = { novo -> viewModel.alternarRsvp(cnv.id, novo) }
+                            aoAlternarStatus = { novo -> viewModel.alternarRsvp(cnv.id, novo) },
+                            aoEnviarWhatsapp = { viewModel.enviarConviteWhatsapp(cnv, eventoAtivo) }
                         )
                     }
                 } else {
@@ -213,7 +232,96 @@ fun TelaEventos(
                 }
             }
 
-            item { Spacer(modifier = Modifier.height(32.dp)) }
+            item { Spacer(modifier = Modifier.height(72.dp)) }
+        }
+    }
+
+    if (exibirDialogoNovoEvento) {
+        var nome by remember { mutableStateOf("") }
+        var data by remember { mutableStateOf(java.time.LocalDate.now().plusDays(15).toString()) }
+        var descricao by remember { mutableStateOf("") }
+        var orcamento by remember { mutableStateOf("1500") }
+
+        AlertDialog(
+            onDismissRequest = { exibirDialogoNovoEvento = false },
+            title = { Text("Novo Evento Familiar 🎉", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(value = nome, onValueChange = { nome = it }, label = { Text("Nome do Evento") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = data, onValueChange = { data = it }, label = { Text("Data (AAAA-MM-DD)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = orcamento, onValueChange = { orcamento = it }, label = { Text("Orçamento Estimado (R$)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = descricao, onValueChange = { descricao = it }, label = { Text("Descrição / Local") }, modifier = Modifier.fillMaxWidth())
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    if (nome.isNotBlank()) {
+                        viewModel.criarNovoEvento(nome, data, descricao, orcamento.toDoubleOrNull() ?: 0.0)
+                        exibirDialogoNovoEvento = false
+                    }
+                }) { Text("Criar Evento") }
+            },
+            dismissButton = {
+                TextButton(onClick = { exibirDialogoNovoEvento = false }) { Text("Cancelar") }
+            }
+        )
+    }
+
+    if (exibirDialogoItemAba && eventoAtivo != null) {
+        if (estado.abaSelecionada == 0) {
+            var nome by remember { mutableStateOf("") }
+            var telefone by remember { mutableStateOf("") }
+            var restricoes by remember { mutableStateOf("") }
+
+            AlertDialog(
+                onDismissRequest = { exibirDialogoItemAba = false },
+                title = { Text("Adicionar Convidado", fontWeight = FontWeight.Bold) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        OutlinedTextField(value = nome, onValueChange = { nome = it }, label = { Text("Nome do Convidado") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                        OutlinedTextField(value = telefone, onValueChange = { telefone = it }, label = { Text("WhatsApp (ex: 5596999999999)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                        OutlinedTextField(value = restricoes, onValueChange = { restricoes = it }, label = { Text("Restrições Alimentares (opcional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    }
+                },
+                confirmButton = {
+                    Button(onClick = {
+                        if (nome.isNotBlank()) {
+                            viewModel.adicionarConvidado(nome, telefone, restricoes)
+                            exibirDialogoItemAba = false
+                        }
+                    }) { Text("Salvar") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { exibirDialogoItemAba = false }) { Text("Cancelar") }
+                }
+            )
+        } else {
+            var itemServico by remember { mutableStateOf("") }
+            var fornecedor by remember { mutableStateOf("") }
+            var valor by remember { mutableStateOf("") }
+
+            AlertDialog(
+                onDismissRequest = { exibirDialogoItemAba = false },
+                title = { Text("Nova Cotação de Fornecedor", fontWeight = FontWeight.Bold) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        OutlinedTextField(value = itemServico, onValueChange = { itemServico = it }, label = { Text("Item ou Serviço (ex: Buffet)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                        OutlinedTextField(value = fornecedor, onValueChange = { fornecedor = it }, label = { Text("Fornecedor") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                        OutlinedTextField(value = valor, onValueChange = { valor = it }, label = { Text("Valor (R$)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    }
+                },
+                confirmButton = {
+                    Button(onClick = {
+                        if (itemServico.isNotBlank() && fornecedor.isNotBlank()) {
+                            viewModel.adicionarCotacao(itemServico, fornecedor, valor.toDoubleOrNull() ?: 0.0, null)
+                            exibirDialogoItemAba = false
+                        }
+                    }) { Text("Salvar") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { exibirDialogoItemAba = false }) { Text("Cancelar") }
+                }
+            )
         }
     }
 }
@@ -221,7 +329,8 @@ fun TelaEventos(
 @Composable
 fun ItemCardConvidado(
     convidado: Convidado,
-    aoAlternarStatus: (StatusRsvp) -> Unit
+    aoAlternarStatus: (StatusRsvp) -> Unit,
+    aoEnviarWhatsapp: () -> Unit = {}
 ) {
     Card(
         shape = RoundedCornerShape(12.dp),
@@ -245,6 +354,16 @@ fun ItemCardConvidado(
                             text = convidado.telefone,
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                if (!convidado.telefone.isNullOrBlank()) {
+                    IconButton(onClick = aoEnviarWhatsapp) {
+                        Icon(
+                            imageVector = Icons.Default.Send,
+                            contentDescription = "Enviar Convite WhatsApp",
+                            tint = VerdeEsmeralda
                         )
                     }
                 }

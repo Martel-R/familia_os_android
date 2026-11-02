@@ -21,5 +21,6 @@ data class Usuario(
     val avatarUrl: String? = null,
     val criadoEm: String = "",
     val familiaId: String? = null,
-    val email: String? = null
+    val email: String? = null,
+    val ativo: Boolean = true
 )

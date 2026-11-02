@@ -18,6 +18,7 @@ import br.com.raevan.familialm.nucleo.tema.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TelaMaisModulos(
+    aoNavegarParaUsuarios: () -> Unit = {},
     aoNavegarParaEventos: () -> Unit,
     aoNavegarParaInventario: () -> Unit,
     aoNavegarParaMural: () -> Unit,
@@ -52,6 +53,16 @@ fun TelaMaisModulos(
                     text = "Acesse todos os módulos da plataforma familiar:",
                     fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            item {
+                CartaoItemModulo(
+                    titulo = "Membros & Contas da Família",
+                    subtitulo = "Perfis multi-tenant, convites, senhas e saldo de moedas",
+                    icone = Icons.Default.People,
+                    corDestaque = AzulPrimario,
+                    aoClicar = aoNavegarParaUsuarios
                 )
             }
 

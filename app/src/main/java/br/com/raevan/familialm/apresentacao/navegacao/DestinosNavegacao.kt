@@ -23,6 +23,7 @@ sealed class DestinoNavegacao(
     object Automacao : DestinoNavegacao("automacao", "Automação", Icons.Default.Sensors)
     object Compras : DestinoNavegacao("compras", "Compras", Icons.AutoMirrored.Filled.ReceiptLong)
     object Contatos : DestinoNavegacao("contatos", "Contatos", Icons.Default.Call)
+    object Usuarios : DestinoNavegacao("usuarios", "Membros", Icons.Default.People)
     object MaisModulos : DestinoNavegacao("mais_modulos", "Mais", Icons.Default.Widgets)
 
     companion object {

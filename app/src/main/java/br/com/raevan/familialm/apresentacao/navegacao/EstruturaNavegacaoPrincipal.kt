@@ -1,13 +1,16 @@
 package br.com.raevan.familialm.apresentacao.navegacao
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -15,6 +18,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import br.com.raevan.familialm.apresentacao.chat.BotaoChatFlutuanteIa
 import br.com.raevan.familialm.apresentacao.login.LoginViewModel
 import br.com.raevan.familialm.apresentacao.login.TelaDesbloqueioBiometrico
 import br.com.raevan.familialm.apresentacao.login.TelaLogin
@@ -44,6 +48,8 @@ import br.com.raevan.familialm.apresentacao.rotinas.RotinasViewModel
 import br.com.raevan.familialm.apresentacao.rotinas.TelaRotinas
 import br.com.raevan.familialm.apresentacao.saude.SaudeViewModel
 import br.com.raevan.familialm.apresentacao.saude.TelaSaude
+import br.com.raevan.familialm.apresentacao.usuarios.TelaUsuarios
+import br.com.raevan.familialm.apresentacao.usuarios.UsuariosViewModel
 import br.com.raevan.familialm.nucleo.tema.AzulPrimario
 
 @Composable
@@ -109,10 +115,15 @@ fun EstruturaNavegacaoPrincipal() {
             }
         }
     ) { preenchimento ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(preenchimento)
+        ) {
         NavHost(
             navController = controladorNavegacao,
             startDestination = rotaInicial,
-            modifier = Modifier.padding(preenchimento)
+            modifier = Modifier.fillMaxSize()
         ) {
             composable(DestinoNavegacao.DesbloqueioBiometrico.rota) {
                 TelaDesbloqueioBiometrico(
@@ -175,6 +186,7 @@ fun EstruturaNavegacaoPrincipal() {
 
             composable(DestinoNavegacao.MaisModulos.rota) {
                 TelaMaisModulos(
+                    aoNavegarParaUsuarios = { controladorNavegacao.navigate(DestinoNavegacao.Usuarios.rota) },
                     aoNavegarParaEventos = { controladorNavegacao.navigate(DestinoNavegacao.Eventos.rota) },
                     aoNavegarParaInventario = { controladorNavegacao.navigate(DestinoNavegacao.Inventario.rota) },
                     aoNavegarParaMural = { controladorNavegacao.navigate(DestinoNavegacao.Mural.rota) },
@@ -188,6 +200,11 @@ fun EstruturaNavegacaoPrincipal() {
                         }
                     }
                 )
+            }
+
+            composable(DestinoNavegacao.Usuarios.rota) {
+                val viewModel: UsuariosViewModel = viewModel()
+                TelaUsuarios(viewModel = viewModel, aoVoltar = { controladorNavegacao.popBackStack() })
             }
 
             composable(DestinoNavegacao.Contatos.rota) {
@@ -219,6 +236,15 @@ fun EstruturaNavegacaoPrincipal() {
                 val viewModel: ComprasViewModel = viewModel()
                 TelaComprasInteligentes(viewModel = viewModel, aoVoltar = { controladorNavegacao.popBackStack() })
             }
+        }
+
+        if (rotaAtual != DestinoNavegacao.Login.rota && rotaAtual != DestinoNavegacao.DesbloqueioBiometrico.rota) {
+            BotaoChatFlutuanteIa(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(start = 16.dp, bottom = 16.dp)
+            )
+        }
         }
     }
 }

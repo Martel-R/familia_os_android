@@ -42,7 +42,9 @@ fun TelaPainelPrincipal(
         topBar = {
             BarraSuperiorHomeHub(
                 usuario = estado.usuarioLogado,
-                titulo = "HomeHub OS"
+                titulo = "Familia OS",
+                familia = estado.familiaAtiva,
+                aoFamiliaAtualizada = { viewModel.recarregarPainel() }
             )
         }
     ) { preenchimentoInterno ->
@@ -341,7 +343,7 @@ fun TelaPainelPrincipal(
             },
             title = {
                 Text(
-                    text = "Wi-Fi da Família Monteiro",
+                    text = "Wi-Fi — ${estado.familiaAtiva?.nome ?: "Minha Família"}",
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp
                 )

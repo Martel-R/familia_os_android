@@ -6,7 +6,32 @@ import kotlinx.coroutines.flow.Flow
 interface RepositorioUsuarios {
     fun obterUsuarioLogado(): Flow<Usuario>
     fun listarMembrosFamilia(): Flow<List<Usuario>>
+    fun listarTodosMembrosFamilia(incluirInativos: Boolean = true): Flow<List<Usuario>> = listarMembrosFamilia()
+    fun obterFamiliaAtiva(): Flow<Familia> = kotlinx.coroutines.flow.flowOf(
+        Familia(
+            id = "00000000-0000-0000-0000-000000000001",
+            nome = "Família Martel",
+            codigoConvite = "MARTEL"
+        )
+    )
     suspend fun atualizarSaldoMoedas(usuarioId: String, deltaMoedas: Int)
+    suspend fun atualizarNomeFamilia(familiaId: String, novoNome: String): Boolean = false
+    suspend fun vincularPorCodigoConvite(usuarioId: String, codigoConvite: String): Familia? = null
+    suspend fun criarMembroFamilia(
+        nome: String,
+        email: String,
+        senha: String,
+        perfil: TipoPerfil,
+        avatarEmoji: String? = null,
+        saldoMoedas: Int = 0
+    ): Result<Usuario> = Result.failure(UnsupportedOperationException())
+    suspend fun atualizarMembroFamilia(
+        usuarioId: String,
+        nome: String,
+        perfil: TipoPerfil,
+        avatarEmoji: String? = null,
+        ativo: Boolean = true
+    ): Boolean = false
 }
 
 interface RepositorioFinancas {
@@ -24,12 +49,16 @@ interface RepositorioEventos {
     fun listarCotacoes(eventoId: String): Flow<List<Cotacao>>
     suspend fun atualizarStatusRsvp(convidadoId: String, novoStatus: StatusRsvp)
     suspend fun adicionarCotacao(cotacao: Cotacao)
+    suspend fun adicionarEvento(nome: String, dataEvento: String, descricao: String?, orcamentoEstimado: Double) {}
+    suspend fun adicionarConvidado(eventoId: String, nome: String, telefone: String?, restricoesAlimentares: String?) {}
 }
 
 interface RepositorioCofre {
     fun listarCredenciais(incluirMaster: Boolean): Flow<List<CredencialCofre>>
     fun obterRedeWifiFamiliar(): Flow<RedeWifiFamiliar>
     suspend fun adicionarCredencial(credencial: CredencialCofre)
+    suspend fun excluirCredencial(credencialId: String) {}
+    suspend fun salvarRedeWifiFamiliar(wifi: RedeWifiFamiliar) {}
 }
 
 interface RepositorioRotinas {
@@ -37,6 +66,16 @@ interface RepositorioRotinas {
     fun listarItensLoja(): Flow<List<ItemLojaPrivilegio>>
     suspend fun alternarConclusaoTarefa(tarefaId: String): Int // retorna moedas ganhas
     suspend fun resgatarItemLoja(usuarioId: String, itemId: String): Boolean
+    suspend fun adicionarTarefa(
+        titulo: String,
+        responsavelId: String?,
+        recorrencia: RecorrenciaTarefa,
+        diasSemana: String?,
+        diaMes: Int?,
+        moedasRecompensa: Int,
+        abertaParaTodos: Boolean
+    ) {}
+    suspend fun adicionarItemLoja(titulo: String, descricao: String, custoMoedas: Int, icone: String?) {}
 }
 
 interface RepositorioSaude {
@@ -68,6 +107,7 @@ interface RepositorioMural {
     fun listarConquistas(): Flow<List<ConquistaMural>>
     fun listarFotosAlbum(): Flow<List<FotoAlbum>>
     suspend fun adicionarReacao(conquistaId: String)
+    suspend fun adicionarConquista(titulo: String, descricao: String?, usuarioId: String?) {}
 }
 
 interface RepositorioAutomacao {

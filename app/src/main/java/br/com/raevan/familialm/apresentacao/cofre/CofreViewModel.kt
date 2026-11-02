@@ -82,6 +82,37 @@ class CofreViewModel : ViewModel() {
             )
             repositorioCofre.adicionarCredencial(novaCred)
             _estado.update { it.copy(mensagemAlerta = "Credencial salva com sucesso!") }
+            observarDados()
+        }
+    }
+
+    fun excluirCredencial(credencialId: String) {
+        viewModelScope.launch {
+            repositorioCofre.excluirCredencial(credencialId)
+            _estado.update { it.copy(mensagemAlerta = "Credencial removida do cofre!") }
+            observarDados()
+        }
+    }
+
+    fun salvarRedeWifi(ssid: String, senha: String, seguranca: String) {
+        if (ssid.isBlank() || senha.isBlank()) {
+            _estado.update { it.copy(mensagemAlerta = "Informe o SSID e a senha do Wi-Fi.") }
+            return
+        }
+        viewModelScope.launch {
+            val novaRede = RedeWifiFamiliar(
+                nomeRedeSsid = ssid.trim(),
+                senhaRede = senha.trim(),
+                tipoSeguranca = seguranca.ifBlank { "WPA2/WPA3" },
+                ehRedeVisitantes = false
+            )
+            repositorioCofre.salvarRedeWifiFamiliar(novaRede)
+            _estado.update {
+                it.copy(
+                    redeWifi = novaRede,
+                    mensagemAlerta = "Configuração de Wi-Fi da família salva no Supabase!"
+                )
+            }
         }
     }
 

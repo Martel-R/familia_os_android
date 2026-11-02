@@ -27,6 +27,7 @@ fun TelaMuralConquistas(
     aoVoltar: () -> Unit = {}
 ) {
     val estado by viewModel.estado.collectAsState()
+    var exibirDialogoNovaConquista by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -52,6 +53,17 @@ fun TelaMuralConquistas(
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
+        },
+        floatingActionButton = {
+            if (estado.abaSelecionada == 0) {
+                FloatingActionButton(
+                    onClick = { exibirDialogoNovaConquista = true },
+                    containerColor = CorMural,
+                    contentColor = Color.White
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Nova Conquista")
+                }
+            }
         }
     ) { preenchimento ->
         LazyColumn(
@@ -121,8 +133,52 @@ fun TelaMuralConquistas(
                 }
             }
 
-            item { Spacer(modifier = Modifier.height(32.dp)) }
+            item { Spacer(modifier = Modifier.height(72.dp)) }
         }
+    }
+
+    if (exibirDialogoNovaConquista) {
+        var titulo by remember { mutableStateOf("") }
+        var descricao by remember { mutableStateOf("") }
+
+        AlertDialog(
+            onDismissRequest = { exibirDialogoNovaConquista = false },
+            title = { Text("Registrar Conquista 🏆", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = titulo,
+                        onValueChange = { titulo = it },
+                        label = { Text("Título da Conquista") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = descricao,
+                        onValueChange = { descricao = it },
+                        label = { Text("Detalhes / Celebração") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (titulo.isNotBlank()) {
+                            viewModel.adicionarNovaConquista(titulo, descricao)
+                            exibirDialogoNovaConquista = false
+                        }
+                    }
+                ) {
+                    Text("Publicar no Mural")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { exibirDialogoNovaConquista = false }) {
+                    Text("Cancelar")
+                }
+            }
+        )
     }
 }
 

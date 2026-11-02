@@ -31,6 +31,7 @@ fun TelaRotinas(
 ) {
     val estado by viewModel.estado.collectAsState()
     val usuarioLogado = estado.usuarioLogado
+    var exibirDialogoCriacao by remember { mutableStateOf(false) }
 
     val tarefasFiltradas = if (estado.membroFiltroId == null) {
         estado.tarefas
@@ -111,6 +112,15 @@ fun TelaRotinas(
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
+        },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = { exibirDialogoCriacao = true },
+                containerColor = AzulPrimario,
+                contentColor = Color.White
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Adicionar")
+            }
         }
     ) { preenchimento ->
         LazyColumn(
@@ -248,7 +258,136 @@ fun TelaRotinas(
                 }
             }
 
-            item { Spacer(modifier = Modifier.height(32.dp)) }
+            item { Spacer(modifier = Modifier.height(72.dp)) }
+        }
+    }
+
+    if (exibirDialogoCriacao) {
+        if (estado.abaSelecionada == 0) {
+            var titulo by remember { mutableStateOf("") }
+            var moedas by remember { mutableStateOf("10") }
+            var abertaTodos by remember { mutableStateOf(true) }
+            var responsavelId by remember { mutableStateOf<String?>(null) }
+
+            AlertDialog(
+                onDismissRequest = { exibirDialogoCriacao = false },
+                title = { Text("Nova Tarefa / Hábito", fontWeight = FontWeight.Bold) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        OutlinedTextField(
+                            value = titulo,
+                            onValueChange = { titulo = it },
+                            label = { Text("Título da Tarefa") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        OutlinedTextField(
+                            value = moedas,
+                            onValueChange = { moedas = it.filter { ch -> ch.isDigit() } },
+                            label = { Text("Recompensa em Moedas 🪙") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Aberta para todos os membros", fontSize = 13.sp)
+                            Switch(checked = abertaTodos, onCheckedChange = { abertaTodos = it })
+                        }
+                        if (!abertaTodos && estado.membrosFamilia.isNotEmpty()) {
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                items(estado.membrosFamilia.size) { idx ->
+                                    val m = estado.membrosFamilia[idx]
+                                    FilterChip(
+                                        selected = responsavelId == m.id,
+                                        onClick = { responsavelId = m.id },
+                                        label = { Text(m.nome.split(" ").first()) }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            if (titulo.isNotBlank()) {
+                                viewModel.adicionarNovaTarefa(
+                                    titulo = titulo,
+                                    responsavelId = responsavelId,
+                                    recorrencia = RecorrenciaTarefa.DIARIA,
+                                    moedasRecompensa = moedas.toIntOrNull() ?: 5,
+                                    abertaParaTodos = abertaTodos
+                                )
+                                exibirDialogoCriacao = false
+                            }
+                        }
+                    ) {
+                        Text("Criar Tarefa")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { exibirDialogoCriacao = false }) {
+                        Text("Cancelar")
+                    }
+                }
+            )
+        } else {
+            var titulo by remember { mutableStateOf("") }
+            var descricao by remember { mutableStateOf("") }
+            var custo by remember { mutableStateOf("30") }
+
+            AlertDialog(
+                onDismissRequest = { exibirDialogoCriacao = false },
+                title = { Text("Novo Privilégio na Loja 🎁", fontWeight = FontWeight.Bold) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        OutlinedTextField(
+                            value = titulo,
+                            onValueChange = { titulo = it },
+                            label = { Text("Título (ex: 1h extra de videogame)") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        OutlinedTextField(
+                            value = descricao,
+                            onValueChange = { descricao = it },
+                            label = { Text("Descrição") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        OutlinedTextField(
+                            value = custo,
+                            onValueChange = { custo = it.filter { ch -> ch.isDigit() } },
+                            label = { Text("Custo em Moedas 🪙") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            if (titulo.isNotBlank()) {
+                                viewModel.adicionarNovoItemLoja(
+                                    titulo = titulo,
+                                    descricao = descricao,
+                                    custoMoedas = custo.toIntOrNull() ?: 20
+                                )
+                                exibirDialogoCriacao = false
+                            }
+                        }
+                    ) {
+                        Text("Salvar Privilégio")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { exibirDialogoCriacao = false }) {
+                        Text("Cancelar")
+                    }
+                }
+            )
         }
     }
 }
