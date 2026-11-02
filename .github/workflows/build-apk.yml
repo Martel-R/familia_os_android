@@ -1,0 +1,52 @@
+name: Build Android APK & Publish
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Prepare APK File
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk familia-os.apk
+          ls -lh familia-os.apk
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: familia-os-apk
+          path: familia-os.apk
+
+      - name: Publish APK to GitHub Release (latest-apk)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete latest-apk --yes --cleanup-tag || true
+          gh release create latest-apk familia-os.apk \
+            --title "Familia OS Android (Última Versão)" \
+            --notes "Build automático gerado a partir do commit ${GITHUB_SHA::7}." \
+            --latest
