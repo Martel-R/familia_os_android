@@ -74,6 +74,47 @@ jobs:
         with:
           name: familia-os-apk
 
+      - name: Download c66a131 APK from run 41546684037 for crash comparison
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p /tmp/prev-run
+          gh run download 41546684037 -n familia-os-apk -D /tmp/prev-run || true
+          if [ -f /tmp/prev-run/old-familia-os.apk ]; then
+            cp /tmp/prev-run/old-familia-os.apk /tmp/c66a131.apk
+          fi
+
+      - name: Create Smoke Test Script
+        run: |
+          cat << 'EOF' > /tmp/smoke-test.sh
+          set -x
+          if [ -f /tmp/c66a131.apk ]; then
+            echo "=== TESTING PREVIOUS APK (c66a131) ==="
+            adb install -r /tmp/c66a131.apk || true
+            adb logcat -c
+            adb shell am start -W -n br.com.raevan.familialm/.MainActivity || true
+            sleep 6
+            echo "c66a131 PID: $(adb shell pidof br.com.raevan.familialm || echo 'NOT RUNNING')"
+            adb logcat -d AndroidRuntime:E FamiliaApp:E FamiliaAppCrash:E *:S || true
+            adb uninstall br.com.raevan.familialm || true
+          fi
+          echo "=== TESTING NEW APK (FRESH INSTALL / LOGIN SCREEN) ==="
+          adb install -r familia-os.apk
+          adb logcat -c
+          adb shell am start -W -n br.com.raevan.familialm/.MainActivity
+          sleep 8
+          NEW_PID=$(adb shell pidof br.com.raevan.familialm || true)
+          echo "New APK PID (Login): $NEW_PID"
+          adb logcat -d AndroidRuntime:E FamiliaApp:E FamiliaAppCrash:E *:S
+          adb shell dumpsys window windows | grep -E 'mCurrentFocus|mFocusedApp' || true
+          if [ -z "$NEW_PID" ]; then
+            echo "ERROR: New APK process is not running!"
+            adb logcat -d -t 200
+            exit 1
+          fi
+          EOF
+          chmod +x /tmp/smoke-test.sh
+
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -87,26 +128,4 @@ jobs:
           target: default
           arch: x86_64
           disable-animations: true
-          script: |
-            if [ -f old-familia-os.apk ]; then
-              echo "=== TESTING OLD APK (c66a131) ==="
-              adb install -r old-familia-os.apk || true
-              adb logcat -c
-              adb shell am start -W -n br.com.raevan.familialm/.MainActivity || true
-              sleep 6
-              echo "Old APK PID: $(adb shell pidof br.com.raevan.familialm || echo 'NOT RUNNING')"
-              adb logcat -d AndroidRuntime:E FamiliaApp:E FamiliaAppCrash:E *:S || true
-              adb uninstall br.com.raevan.familialm || true
-            fi
-            echo "=== TESTING NEW APK ==="
-            adb install -r familia-os.apk
-            adb logcat -c
-            adb shell am start -W -n br.com.raevan.familialm/.MainActivity
-            sleep 8
-            NEW_PID=$(adb shell pidof br.com.raevan.familialm || true)
-            echo "New APK PID: $NEW_PID"
-            adb logcat -d AndroidRuntime:E FamiliaApp:E FamiliaAppCrash:E *:S
-            if [ -z "$NEW_PID" ]; then
-              echo "ERROR: New APK process is not running!"
-              exit 1
-            fi
+          script: bash /tmp/smoke-test.sh
