@@ -4,8 +4,21 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
+data class FamiliaDto(
+    val id: String,
+    val nome: String,
+    val slug: String? = null,
+    @SerialName("codigo_convite") val codigoConvite: String? = null,
+    val plano: String = "familiar",
+    val ativo: Boolean = true
+)
+
+@Serializable
 data class UsuarioDto(
     val id: String,
+    @SerialName("familia_id") val familiaId: String? = null,
+    @SerialName("auth_user_id") val authUserId: String? = null,
+    val email: String? = null,
     val nome: String,
     val perfil: String,
     @SerialName("saldo_moedas") val saldoMoedas: Int = 0,

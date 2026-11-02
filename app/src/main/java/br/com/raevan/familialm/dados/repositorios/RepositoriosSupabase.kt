@@ -2,8 +2,10 @@ package br.com.raevan.familialm.dados.repositorios
 
 import br.com.raevan.familialm.dados.rede.ClienteSupabase
 import br.com.raevan.familialm.dados.remoto.dto.*
+import br.com.raevan.familialm.dados.sessao.GerenciadorSessao
 import br.com.raevan.familialm.dominio.modelos.*
 import br.com.raevan.familialm.dominio.repositorios.*
+import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.query.Order
 import kotlinx.coroutines.Dispatchers
@@ -15,21 +17,43 @@ import java.util.UUID
 
 class RepositorioUsuariosSupabase : RepositorioUsuarios {
     override fun obterUsuarioLogado(): Flow<Usuario> = flow {
-        val dtos = ClienteSupabase.client.from("usuarios")
+        val todosAtivos = ClienteSupabase.client.from("usuarios")
             .select {
                 filter { eq("ativo", true) }
-                limit(1)
             }
             .decodeList<UsuarioDto>()
 
-        val primeiro = dtos.firstOrNull() ?: UsuarioDto(
+        val authUser = try { ClienteSupabase.client.auth.currentUserOrNull() } catch (_: Exception) { null }
+        val ultimoEmail = try { GerenciadorSessao.obterInstancia().obterUltimoEmail() } catch (_: Exception) { "" }
+
+        val usuarioResolvido = todosAtivos.firstOrNull { dto ->
+            (authUser?.id != null && (dto.authUserId == authUser.id || dto.id == authUser.id)) ||
+                (!authUser?.email.isNullOrBlank() && dto.email.equals(authUser?.email, ignoreCase = true)) ||
+                (ultimoEmail.isNotBlank() && dto.email.equals(ultimoEmail, ignoreCase = true))
+        } ?: todosAtivos.firstOrNull() ?: UsuarioDto(
             id = "usr-padrao",
+            familiaId = GerenciadorSessao.DEFAULT_FAMILIA_ID,
             nome = "Usuário",
             perfil = "pai_admin",
             saldoMoedas = 0
         )
 
-        emit(primeiro.paraDominio())
+        usuarioResolvido.familiaId?.let { famId ->
+            try {
+                val famDto = ClienteSupabase.client.from("familias")
+                    .select {
+                        filter { eq("id", famId) }
+                    }
+                    .decodeSingleOrNull<FamiliaDto>()
+                GerenciadorSessao.obterInstancia().salvarFamiliaAtiva(
+                    familiaId = famId,
+                    nomeFamilia = famDto?.nome ?: "Minha Família",
+                    codigoConvite = famDto?.codigoConvite ?: ""
+                )
+            } catch (_: Exception) {}
+        }
+
+        emit(usuarioResolvido.paraDominio())
     }.flowOn(Dispatchers.IO)
 
     override fun listarMembrosFamilia(): Flow<List<Usuario>> = flow {
@@ -40,7 +64,17 @@ class RepositorioUsuariosSupabase : RepositorioUsuarios {
             }
             .decodeList<UsuarioDto>()
 
-        emit(dtos.map { it.paraDominio() })
+        val familiaAtivaId = try {
+            GerenciadorSessao.obterInstancia().obterFamiliaIdAtiva()
+        } catch (_: Exception) {
+            GerenciadorSessao.DEFAULT_FAMILIA_ID
+        }
+
+        val filtrados = dtos.filter { dto ->
+            dto.familiaId == null || dto.familiaId == familiaAtivaId
+        }
+
+        emit(filtrados.map { it.paraDominio() })
     }.flowOn(Dispatchers.IO)
 
     override suspend fun atualizarSaldoMoedas(usuarioId: String, deltaMoedas: Int) = withContext(Dispatchers.IO) {
@@ -69,7 +103,9 @@ class RepositorioUsuariosSupabase : RepositorioUsuarios {
         },
         saldoMoedas = saldoMoedas,
         avatarUrl = avatarUrl,
-        criadoEm = criadoEm
+        criadoEm = criadoEm,
+        familiaId = familiaId,
+        email = email
     )
 }
 

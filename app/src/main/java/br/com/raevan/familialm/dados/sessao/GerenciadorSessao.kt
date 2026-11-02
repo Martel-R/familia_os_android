@@ -50,11 +50,35 @@ class GerenciadorSessao private constructor(context: Context) : SessionManager {
         prefs.edit().putBoolean(KEY_BIOMETRIA_ATIVADA, ativada).apply()
     }
 
+    fun salvarFamiliaAtiva(familiaId: String, nomeFamilia: String, codigoConvite: String = "") {
+        prefs.edit()
+            .putString(KEY_FAMILIA_ID, familiaId)
+            .putString(KEY_FAMILIA_NOME, nomeFamilia)
+            .putString(KEY_FAMILIA_CODIGO, codigoConvite)
+            .apply()
+    }
+
+    fun obterFamiliaIdAtiva(): String {
+        return prefs.getString(KEY_FAMILIA_ID, DEFAULT_FAMILIA_ID) ?: DEFAULT_FAMILIA_ID
+    }
+
+    fun obterNomeFamiliaAtiva(): String {
+        return prefs.getString(KEY_FAMILIA_NOME, "Família Martel") ?: "Família Martel"
+    }
+
+    fun obterCodigoConviteAtivo(): String {
+        return prefs.getString(KEY_FAMILIA_CODIGO, "MARTEL") ?: "MARTEL"
+    }
+
     companion object {
+        const val DEFAULT_FAMILIA_ID = "00000000-0000-0000-0000-000000000001"
         private const val PREFS_NAME = "familia_os_sessao_prefs"
         private const val KEY_SESSION = "supabase_user_session"
         private const val KEY_ULTIMO_EMAIL = "ultimo_email_logado"
         private const val KEY_BIOMETRIA_ATIVADA = "biometria_ativada"
+        private const val KEY_FAMILIA_ID = "familia_id_ativa"
+        private const val KEY_FAMILIA_NOME = "familia_nome_ativa"
+        private const val KEY_FAMILIA_CODIGO = "familia_codigo_convite"
 
         @Volatile
         private var INSTANCIA: GerenciadorSessao? = null

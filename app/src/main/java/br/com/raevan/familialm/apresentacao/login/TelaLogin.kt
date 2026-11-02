@@ -36,6 +36,11 @@ fun TelaLogin(
     var email by remember { mutableStateOf("martel.r@outlook.com") }
     var senha by remember { mutableStateOf("") }
     var senhaVisivel by remember { mutableStateOf(false) }
+    var modoCadastro by remember { mutableStateOf(false) }
+    var modoConvite by remember { mutableStateOf(false) }
+    var nomeUsuario by remember { mutableStateOf("") }
+    var nomeFamilia by remember { mutableStateOf("") }
+    var codigoConvite by remember { mutableStateOf("") }
 
     val carregando by viewModel.carregando.collectAsStateWithLifecycle()
     val mensagemErro by viewModel.mensagemErro.collectAsStateWithLifecycle()
@@ -124,6 +129,71 @@ fun TelaLogin(
                     }
                 }
 
+                // Campos extras para Cadastro Multi-Tenant (Nova Família ou Convite)
+                if (modoCadastro) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FilterChip(
+                            selected = !modoConvite,
+                            onClick = { modoConvite = false },
+                            label = { Text("🏠 Nova Família") },
+                            modifier = Modifier.weight(1f)
+                        )
+                        FilterChip(
+                            selected = modoConvite,
+                            onClick = { modoConvite = true },
+                            label = { Text("🔑 Tenho Código") },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+
+                    OutlinedTextField(
+                        value = nomeUsuario,
+                        onValueChange = { nomeUsuario = it },
+                        label = { Text("Seu Nome") },
+                        leadingIcon = {
+                            Icon(imageVector = Icons.Default.Person, contentDescription = null)
+                        },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    if (!modoConvite) {
+                        OutlinedTextField(
+                            value = nomeFamilia,
+                            onValueChange = { nomeFamilia = it },
+                            label = { Text("Nome da Família / Casa") },
+                            leadingIcon = {
+                                Icon(imageVector = Icons.Default.Home, contentDescription = null)
+                            },
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    } else {
+                        OutlinedTextField(
+                            value = codigoConvite,
+                            onValueChange = { codigoConvite = it.uppercase() },
+                            label = { Text("Código de Convite da Família") },
+                            leadingIcon = {
+                                Icon(imageVector = Icons.Default.VpnKey, contentDescription = null)
+                            },
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+
                 // Campo de E-mail
                 OutlinedTextField(
                     value = email,
@@ -178,9 +248,22 @@ fun TelaLogin(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Botão de Login
+                // Botão de Login / Cadastro Multi-Tenant
                 Button(
-                    onClick = { viewModel.fazerLogin(email, senha) },
+                    onClick = {
+                        if (modoCadastro) {
+                            viewModel.registrarFamiliaOuConvite(
+                                nomeUsuario = nomeUsuario,
+                                emailDigitado = email,
+                                senhaDigitada = senha,
+                                nomeFamilia = nomeFamilia,
+                                codigoConvite = codigoConvite,
+                                modoConvite = modoConvite
+                            )
+                        } else {
+                            viewModel.fazerLogin(email, senha)
+                        }
+                    },
                     enabled = !carregando,
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = AzulPrimario),
@@ -196,11 +279,34 @@ fun TelaLogin(
                         )
                     } else {
                         Text(
-                            text = "Entrar no Sistema",
+                            text = if (modoCadastro) {
+                                if (modoConvite) "Entrar na Família" else "Criar Família & Entrar"
+                            } else {
+                                "Entrar no Sistema"
+                            },
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                TextButton(
+                    onClick = {
+                        modoCadastro = !modoCadastro
+                        viewModel.limparErro()
+                    }
+                ) {
+                    Text(
+                        text = if (modoCadastro) {
+                            "Já possui conta? Faça login"
+                        } else {
+                            "Nova família ou membro convidado? Cadastre-se"
+                        },
+                        color = AzulPrimario,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(28.dp))
