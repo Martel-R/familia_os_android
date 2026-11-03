@@ -37,6 +37,7 @@ class MainActivity : FragmentActivity() {
 
                     LaunchedEffect(Unit) {
                         try {
+                            kotlinx.coroutines.delay(2000)
                             val temPermissao = ContextCompat.checkSelfPermission(
                                 this@MainActivity,
                                 Manifest.permission.POST_NOTIFICATIONS

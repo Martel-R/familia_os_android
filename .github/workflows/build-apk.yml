@@ -70,45 +70,24 @@ jobs:
         run: |
           cat << 'EOF' > /tmp/smoke-test.sh
           set -x
-          adb install -r familia-os.apk
+          adb install -r -g familia-os.apk
 
-          echo "=== 1. TESTING LOGIN SCREEN ==="
-          adb logcat -c
-          adb shell am start -W -n br.com.raevan.familialm/.MainActivity
-          sleep 6
-          PID_LOGIN=$(adb shell pidof br.com.raevan.familialm || true)
-          echo "PID (Login): $PID_LOGIN"
-          adb logcat -d AndroidRuntime:E FamiliaApp:E FamiliaAppCrash:E *:S
-          if [ -z "$PID_LOGIN" ]; then
-            echo "ERROR: APK crashed on Login screen!"
-            exit 1
-          fi
-
-          echo "=== 2. TESTING BIOMETRIC UNLOCK -> DASHBOARD ==="
-          adb shell am force-stop br.com.raevan.familialm
-          adb logcat -c
-          adb shell am start -W -n br.com.raevan.familialm/.MainActivity --es rota_inicial desbloqueio_biometrico
-          sleep 8
-          PID_BIO=$(adb shell pidof br.com.raevan.familialm || true)
-          echo "PID (Biometric -> Painel): $PID_BIO"
-          adb logcat -d AndroidRuntime:E FamiliaApp:E FamiliaAppCrash:E *:S
-          if [ -z "$PID_BIO" ]; then
-            echo "ERROR: APK crashed on Biometric/Dashboard transition!"
-            exit 1
-          fi
-
-          echo "=== 3. TESTING PAINEL PRINCIPAL & SUPABASE REPOSITORIES ==="
-          adb shell am force-stop br.com.raevan.familialm
-          adb logcat -c
-          adb shell am start -W -n br.com.raevan.familialm/.MainActivity --es rota_inicial painel
-          sleep 8
-          PID_PAINEL=$(adb shell pidof br.com.raevan.familialm || true)
-          echo "PID (Painel): $PID_PAINEL"
-          adb logcat -d AndroidRuntime:E FamiliaApp:E FamiliaAppCrash:E *:S
-          if [ -z "$PID_PAINEL" ]; then
-            echo "ERROR: APK crashed on Painel Principal!"
-            exit 1
-          fi
+          for ROTA in login desbloqueio_biometrico painel financas rotinas saude cofre eventos automacao usuarios; do
+            echo "=== TESTING ROUTE: $ROTA ==="
+            adb logcat -c
+            adb shell am start -S -W -n br.com.raevan.familialm/.MainActivity --es rota_inicial "$ROTA"
+            sleep 4
+            PID=$(adb shell pidof br.com.raevan.familialm || true)
+            echo "PID ($ROTA): $PID"
+            CRASH_LOG=$(adb logcat -d AndroidRuntime:E FamiliaApp:E FamiliaAppCrash:E *:S || true)
+            echo "$CRASH_LOG"
+            if [ -z "$PID" ] || echo "$CRASH_LOG" | grep -q "FATAL EXCEPTION"; then
+              echo "ERROR: APK crashed on route $ROTA!"
+              adb logcat -d -t 150
+              exit 1
+            fi
+          done
+          echo "=== ALL 10 SCREENS PASSED SMOKE TEST SUCCESSFULLY ==="
           EOF
           chmod +x /tmp/smoke-test.sh
 
