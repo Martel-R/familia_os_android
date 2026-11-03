@@ -33,12 +33,6 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Save previous release APK for comparison test
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release download latest-apk -p "familia-os.apk" -O old-familia-os.apk || true
-
       - name: Build Release APK (Signed)
         run: ./gradlew assembleRelease --no-daemon --stacktrace -Dorg.gradle.java.home="$JAVA_HOME"
 
@@ -51,9 +45,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: familia-os-apk
-          path: |
-            familia-os.apk
-            old-familia-os.apk
+          path: familia-os.apk
 
       - name: Publish APK to GitHub Release (latest-apk)
         env:
@@ -74,42 +66,47 @@ jobs:
         with:
           name: familia-os-apk
 
-      - name: Download c66a131 APK from run 41546684037 for crash comparison
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          mkdir -p /tmp/prev-run
-          gh run download 41546684037 -n familia-os-apk -D /tmp/prev-run || true
-          if [ -f /tmp/prev-run/old-familia-os.apk ]; then
-            cp /tmp/prev-run/old-familia-os.apk /tmp/c66a131.apk
-          fi
-
       - name: Create Smoke Test Script
         run: |
           cat << 'EOF' > /tmp/smoke-test.sh
           set -x
-          if [ -f /tmp/c66a131.apk ]; then
-            echo "=== TESTING PREVIOUS APK (c66a131) ==="
-            adb install -r /tmp/c66a131.apk || true
-            adb logcat -c
-            adb shell am start -W -n br.com.raevan.familialm/.MainActivity || true
-            sleep 6
-            echo "c66a131 PID: $(adb shell pidof br.com.raevan.familialm || echo 'NOT RUNNING')"
-            adb logcat -d AndroidRuntime:E FamiliaApp:E FamiliaAppCrash:E *:S || true
-            adb uninstall br.com.raevan.familialm || true
-          fi
-          echo "=== TESTING NEW APK (FRESH INSTALL / LOGIN SCREEN) ==="
           adb install -r familia-os.apk
+
+          echo "=== 1. TESTING LOGIN SCREEN ==="
           adb logcat -c
           adb shell am start -W -n br.com.raevan.familialm/.MainActivity
-          sleep 8
-          NEW_PID=$(adb shell pidof br.com.raevan.familialm || true)
-          echo "New APK PID (Login): $NEW_PID"
+          sleep 6
+          PID_LOGIN=$(adb shell pidof br.com.raevan.familialm || true)
+          echo "PID (Login): $PID_LOGIN"
           adb logcat -d AndroidRuntime:E FamiliaApp:E FamiliaAppCrash:E *:S
-          adb shell dumpsys window windows | grep -E 'mCurrentFocus|mFocusedApp' || true
-          if [ -z "$NEW_PID" ]; then
-            echo "ERROR: New APK process is not running!"
-            adb logcat -d -t 200
+          if [ -z "$PID_LOGIN" ]; then
+            echo "ERROR: APK crashed on Login screen!"
+            exit 1
+          fi
+
+          echo "=== 2. TESTING BIOMETRIC UNLOCK -> DASHBOARD ==="
+          adb shell am force-stop br.com.raevan.familialm
+          adb logcat -c
+          adb shell am start -W -n br.com.raevan.familialm/.MainActivity --es rota_inicial desbloqueio_biometrico
+          sleep 8
+          PID_BIO=$(adb shell pidof br.com.raevan.familialm || true)
+          echo "PID (Biometric -> Painel): $PID_BIO"
+          adb logcat -d AndroidRuntime:E FamiliaApp:E FamiliaAppCrash:E *:S
+          if [ -z "$PID_BIO" ]; then
+            echo "ERROR: APK crashed on Biometric/Dashboard transition!"
+            exit 1
+          fi
+
+          echo "=== 3. TESTING PAINEL PRINCIPAL & SUPABASE REPOSITORIES ==="
+          adb shell am force-stop br.com.raevan.familialm
+          adb logcat -c
+          adb shell am start -W -n br.com.raevan.familialm/.MainActivity --es rota_inicial painel
+          sleep 8
+          PID_PAINEL=$(adb shell pidof br.com.raevan.familialm || true)
+          echo "PID (Painel): $PID_PAINEL"
+          adb logcat -d AndroidRuntime:E FamiliaApp:E FamiliaAppCrash:E *:S
+          if [ -z "$PID_PAINEL" ]; then
+            echo "ERROR: APK crashed on Painel Principal!"
             exit 1
           fi
           EOF

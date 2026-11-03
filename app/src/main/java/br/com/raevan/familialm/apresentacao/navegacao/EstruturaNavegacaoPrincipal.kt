@@ -58,6 +58,7 @@ fun EstruturaNavegacaoPrincipal() {
     val entradaPilhaAtual by controladorNavegacao.currentBackStackEntryAsState()
     val rotaAtual = entradaPilhaAtual?.destination?.route
 
+    val contexto = androidx.compose.ui.platform.LocalContext.current
     val loginViewModel: LoginViewModel = viewModel()
     val sessaoExiste = remember {
         try {
@@ -66,7 +67,18 @@ fun EstruturaNavegacaoPrincipal() {
             false
         }
     }
-    val rotaInicial = if (sessaoExiste) DestinoNavegacao.DesbloqueioBiometrico.rota else DestinoNavegacao.Login.rota
+    val rotaExtra = remember {
+        try {
+            (contexto as? android.app.Activity)?.intent?.getStringExtra("rota_inicial")
+        } catch (_: Throwable) {
+            null
+        }
+    }
+    val rotaInicial = when {
+        !rotaExtra.isNullOrBlank() -> rotaExtra
+        sessaoExiste -> DestinoNavegacao.DesbloqueioBiometrico.rota
+        else -> DestinoNavegacao.Login.rota
+    }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
