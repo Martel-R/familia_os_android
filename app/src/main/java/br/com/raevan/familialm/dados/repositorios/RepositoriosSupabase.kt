@@ -1764,7 +1764,7 @@ class RepositorioComprasSupabase : RepositorioCompras {
 
         if (lancarEmFinancas && valorTotal > 0.0) {
             try {
-                val transacaoDto = TransacaoFinanceiraDto(
+                val transacaoDto = TransacaoDto(
                     id = UUID.randomUUID().toString(),
                     familiaId = familiaId,
                     descricao = "Compra (${itensValidos.size} itens) - ${fornecedor.trim()}",
