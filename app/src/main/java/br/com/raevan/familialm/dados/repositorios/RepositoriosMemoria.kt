@@ -594,4 +594,68 @@ class RepositorioComprasMemoria : RepositorioCompras {
         )
         estadoRecibos.update { listOf(novoRecibo) + it }
     }
+
+    override suspend fun extrairNotaComIa(
+        bytesArquivo: ByteArray,
+        mimeType: String,
+        nomeArquivo: String
+    ): ReciboCompra = withContext(Dispatchers.IO) {
+        ReciboCompra(
+            id = UUID.randomUUID().toString(),
+            fornecedor = "Supermercado Extraído IA",
+            dataCompra = java.time.LocalDate.now().toString(),
+            valorTotal = 0.0,
+            itens = emptyList()
+        )
+    }
+
+    override suspend fun salvarReciboComItens(
+        fornecedor: String,
+        dataCompra: String,
+        valorTotal: Double,
+        itens: List<ItemCompraExtraido>,
+        lancarEmFinancas: Boolean
+    ) = withContext(Dispatchers.IO) {
+        val id = UUID.randomUUID().toString()
+        val novoRecibo = ReciboCompra(
+            id = id,
+            fornecedor = fornecedor,
+            dataCompra = dataCompra,
+            valorTotal = valorTotal,
+            itens = itens.map { it.copy(reciboId = id) }
+        )
+        estadoRecibos.update { listOf(novoRecibo) + it }
+    }
+
+    override suspend fun adicionarItemAoRecibo(
+        reciboId: String,
+        nomeProduto: String,
+        quantidade: Double,
+        valorUnitario: Double,
+        categoriaSugerida: String
+    ) = withContext(Dispatchers.IO) {
+        val novoItem = ItemCompraExtraido(
+            id = UUID.randomUUID().toString(),
+            reciboId = reciboId,
+            nomeProduto = nomeProduto,
+            quantidade = quantidade,
+            valorUnitario = valorUnitario,
+            categoriaSugerida = categoriaSugerida
+        )
+        estadoRecibos.update { lista ->
+            lista.map { r ->
+                if (r.id == reciboId) r.copy(itens = r.itens + novoItem) else r
+            }
+        }
+    }
+
+    override suspend fun excluirRecibo(reciboId: String) = withContext(Dispatchers.IO) {
+        estadoRecibos.update { lista -> lista.filterNot { it.id == reciboId } }
+    }
+
+    override suspend fun excluirItemRecibo(itemId: String) = withContext(Dispatchers.IO) {
+        estadoRecibos.update { lista ->
+            lista.map { r -> r.copy(itens = r.itens.filterNot { it.id == itemId }) }
+        }
+    }
 }

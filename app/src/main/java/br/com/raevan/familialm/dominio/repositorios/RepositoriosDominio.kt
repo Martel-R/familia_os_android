@@ -119,4 +119,21 @@ interface RepositorioAutomacao {
 interface RepositorioCompras {
     fun listarRecibos(): Flow<List<ReciboCompra>>
     suspend fun simularOcrCupomFiscal(nomeSupermercado: String, valorTotal: Double)
+    suspend fun extrairNotaComIa(bytesArquivo: ByteArray, mimeType: String, nomeArquivo: String): ReciboCompra
+    suspend fun salvarReciboComItens(
+        fornecedor: String,
+        dataCompra: String,
+        valorTotal: Double,
+        itens: List<ItemCompraExtraido>,
+        lancarEmFinancas: Boolean = true
+    )
+    suspend fun adicionarItemAoRecibo(
+        reciboId: String,
+        nomeProduto: String,
+        quantidade: Double,
+        valorUnitario: Double,
+        categoriaSugerida: String
+    )
+    suspend fun excluirRecibo(reciboId: String)
+    suspend fun excluirItemRecibo(itemId: String)
 }

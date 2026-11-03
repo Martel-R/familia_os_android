@@ -291,6 +291,7 @@ data class ReciboCompraDto(
 @Serializable
 data class ItemCompraExtraidoDto(
     val id: String,
+    @SerialName("familia_id") val familiaId: String? = null,
     @SerialName("recibo_id") val reciboId: String = "",
     @SerialName("nome_produto") val nomeProduto: String = "",
     val quantidade: Double = 1.0,

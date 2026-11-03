@@ -1597,7 +1597,22 @@ class RepositorioComprasSupabase : RepositorioCompras {
         } catch (_: Exception) {
             emptyList()
         }
-        emit(dtos.map { it.paraDominio() })
+
+        val itensDtos = try {
+            ClienteSupabase.client.from("compras_itens_extraidos")
+                .select {
+                    filter { eq("familia_id", familiaId) }
+                }
+                .decodeList<ItemCompraExtraidoDto>()
+        } catch (_: Exception) {
+            emptyList()
+        }
+
+        val itensPorRecibo = itensDtos
+            .map { it.paraDominio() }
+            .groupBy { it.reciboId }
+
+        emit(dtos.map { it.paraDominio(itensPorRecibo[it.id] ?: emptyList()) })
     }.catch { emit(emptyList()) }.flowOn(Dispatchers.IO)
 
     override suspend fun simularOcrCupomFiscal(nomeSupermercado: String, valorTotal: Double) = withContext(Dispatchers.IO) {
@@ -1615,12 +1630,215 @@ class RepositorioComprasSupabase : RepositorioCompras {
         Unit
     }
 
-    private fun ReciboCompraDto.paraDominio() = ReciboCompra(
+    override suspend fun extrairNotaComIa(
+        bytesArquivo: ByteArray,
+        mimeType: String,
+        nomeArquivo: String
+    ): ReciboCompra = withContext(Dispatchers.IO) {
+        val urls = listOf(
+            "https://ai-familia.martel.page/api/ocr/receipt",
+            "https://familia.martel.page/api/ocr/receipt"
+        )
+        var ultimoErro = "Não foi possível comunicar com o serviço de IA."
+
+        for (urlStr in urls) {
+            try {
+                val boundary = "----FamiliaOSBoundary" + System.currentTimeMillis()
+                val conn = (java.net.URL(urlStr).openConnection() as java.net.HttpURLConnection).apply {
+                    requestMethod = "POST"
+                    doOutput = true
+                    doInput = true
+                    useCaches = false
+                    connectTimeout = 25000
+                    readTimeout = 60000
+                    setRequestProperty("User-Agent", ClienteSupabase.USER_AGENT_PADRAO)
+                    setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
+                }
+
+                conn.outputStream.use { out ->
+                    val writer = out.writer(Charsets.UTF_8)
+                    writer.append("--$boundary\r\n")
+                    writer.append("Content-Disposition: form-data; name=\"file\"; filename=\"$nomeArquivo\"\r\n")
+                    writer.append("Content-Type: $mimeType\r\n\r\n")
+                    writer.flush()
+                    out.write(bytesArquivo)
+                    out.flush()
+                    writer.append("\r\n--$boundary--\r\n")
+                    writer.flush()
+                }
+
+                val code = conn.responseCode
+                if (code in 200..299) {
+                    val resposta = conn.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+                    val json = org.json.JSONObject(resposta)
+                    val fornecedor = json.optString("fornecedor", "").takeIf { it.isNotBlank() && it != "null" }
+                        ?: "Estabelecimento Comercial"
+                    val dataCompra = json.optString("data_compra", "").takeIf { it.isNotBlank() && it != "null" }
+                        ?: java.time.LocalDate.now().toString()
+                    val itensJson = json.optJSONArray("itens")
+                    val itensExtraidos = mutableListOf<ItemCompraExtraido>()
+                    if (itensJson != null) {
+                        for (i in 0 until itensJson.length()) {
+                            val obj = itensJson.optJSONObject(i) ?: continue
+                            val nomeProd = obj.optString("nome_produto", "").trim()
+                            if (nomeProd.isNotEmpty()) {
+                                val qtd = obj.optDouble("quantidade", 1.0).let { if (it.isNaN() || it <= 0.0) 1.0 else it }
+                                val valUnit = obj.optDouble("valor_unitario", 0.0).let { if (it.isNaN() || it < 0.0) 0.0 else it }
+                                val cat = obj.optString("categoria_sugerida", "Alimentação").takeIf { it.isNotBlank() && it != "null" }
+                                    ?: "Alimentação"
+                                itensExtraidos.add(
+                                    ItemCompraExtraido(
+                                        id = UUID.randomUUID().toString(),
+                                        reciboId = "",
+                                        nomeProduto = nomeProd,
+                                        quantidade = qtd,
+                                        valorUnitario = valUnit,
+                                        categoriaSugerida = cat
+                                    )
+                                )
+                            }
+                        }
+                    }
+                    val somaItens = itensExtraidos.sumOf { it.quantidade * it.valorUnitario }
+                    val valorTotal = json.optDouble("valor_total", 0.0).let {
+                        if (it.isNaN() || it <= 0.0) somaItens else it
+                    }
+                    return@withContext ReciboCompra(
+                        id = UUID.randomUUID().toString(),
+                        fornecedor = fornecedor,
+                        dataCompra = dataCompra,
+                        valorTotal = valorTotal,
+                        itens = itensExtraidos
+                    )
+                } else {
+                    val errTxt = try {
+                        conn.errorStream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() } ?: "HTTP $code"
+                    } catch (_: Exception) {
+                        "HTTP $code"
+                    }
+                    ultimoErro = errTxt
+                }
+            } catch (e: Exception) {
+                ultimoErro = e.message ?: "Erro de conexão com a IA"
+            }
+        }
+
+        throw IllegalStateException(ultimoErro)
+    }
+
+    override suspend fun salvarReciboComItens(
+        fornecedor: String,
+        dataCompra: String,
+        valorTotal: Double,
+        itens: List<ItemCompraExtraido>,
+        lancarEmFinancas: Boolean
+    ) = withContext(Dispatchers.IO) {
+        val familiaId = obterFamiliaAtivaSegura()
+        val reciboId = UUID.randomUUID().toString()
+        val dataFormatada = dataCompra.ifBlank { java.time.LocalDate.now().toString() }
+
+        val reciboDto = ReciboCompraDto(
+            id = reciboId,
+            familiaId = familiaId,
+            fornecedor = fornecedor.trim().ifBlank { "Supermercado" },
+            dataCompra = dataFormatada,
+            valorTotal = valorTotal
+        )
+        ClienteSupabase.client.from("compras_recibos").insert(reciboDto)
+
+        val itensValidos = itens.filter { it.nomeProduto.isNotBlank() }
+        if (itensValidos.isNotEmpty()) {
+            val dtosItens = itensValidos.map { item ->
+                ItemCompraExtraidoDto(
+                    id = UUID.randomUUID().toString(),
+                    familiaId = familiaId,
+                    reciboId = reciboId,
+                    nomeProduto = item.nomeProduto.trim(),
+                    quantidade = if (item.quantidade > 0.0) item.quantidade else 1.0,
+                    valorUnitario = item.valorUnitario,
+                    categoriaSugerida = item.categoriaSugerida ?: "Alimentação"
+                )
+            }
+            ClienteSupabase.client.from("compras_itens_extraidos").insert(dtosItens)
+        }
+
+        if (lancarEmFinancas && valorTotal > 0.0) {
+            try {
+                val transacaoDto = TransacaoFinanceiraDto(
+                    id = UUID.randomUUID().toString(),
+                    familiaId = familiaId,
+                    descricao = "Compra (${itensValidos.size} itens) - ${fornecedor.trim()}",
+                    tipo = "despesa_variavel",
+                    valor = valorTotal,
+                    dataVencimento = dataFormatada,
+                    status = "pago"
+                )
+                ClienteSupabase.client.from("transacoes_financeiras").insert(transacaoDto)
+            } catch (_: Exception) {}
+        }
+        Unit
+    }
+
+    override suspend fun adicionarItemAoRecibo(
+        reciboId: String,
+        nomeProduto: String,
+        quantidade: Double,
+        valorUnitario: Double,
+        categoriaSugerida: String
+    ) = withContext(Dispatchers.IO) {
+        try {
+            val familiaId = obterFamiliaAtivaSegura()
+            val dto = ItemCompraExtraidoDto(
+                id = UUID.randomUUID().toString(),
+                familiaId = familiaId,
+                reciboId = reciboId,
+                nomeProduto = nomeProduto.trim(),
+                quantidade = if (quantidade > 0.0) quantidade else 1.0,
+                valorUnitario = valorUnitario,
+                categoriaSugerida = categoriaSugerida.ifBlank { "Geral" }
+            )
+            ClienteSupabase.client.from("compras_itens_extraidos").insert(dto)
+        } catch (_: Exception) {}
+        Unit
+    }
+
+    override suspend fun excluirRecibo(reciboId: String) = withContext(Dispatchers.IO) {
+        try {
+            ClienteSupabase.client.from("compras_itens_extraidos").delete {
+                filter { eq("recibo_id", reciboId) }
+            }
+            ClienteSupabase.client.from("compras_recibos").delete {
+                filter { eq("id", reciboId) }
+            }
+        } catch (_: Exception) {}
+        Unit
+    }
+
+    override suspend fun excluirItemRecibo(itemId: String) = withContext(Dispatchers.IO) {
+        try {
+            ClienteSupabase.client.from("compras_itens_extraidos").delete {
+                filter { eq("id", itemId) }
+            }
+        } catch (_: Exception) {}
+        Unit
+    }
+
+    private fun ItemCompraExtraidoDto.paraDominio() = ItemCompraExtraido(
+        id = id,
+        reciboId = reciboId,
+        nomeProduto = nomeProduto,
+        quantidade = quantidade,
+        valorUnitario = valorUnitario,
+        categoriaSugerida = categoriaSugerida
+    )
+
+    private fun ReciboCompraDto.paraDominio(itens: List<ItemCompraExtraido> = emptyList()) = ReciboCompra(
         id = id,
         fornecedor = fornecedor,
         dataCompra = dataCompra,
         valorTotal = valorTotal,
         caminhoImagemRecibo = caminhoImagemRecibo,
+        itens = itens,
         criadoEm = criadoEm
     )
 }

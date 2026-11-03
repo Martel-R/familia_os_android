@@ -72,7 +72,7 @@ jobs:
           set -x
           adb install -r -g familia-os.apk
 
-          for ROTA in login desbloqueio_biometrico painel financas rotinas saude cofre eventos automacao usuarios; do
+          for ROTA in login desbloqueio_biometrico painel compras financas rotinas saude cofre eventos automacao usuarios; do
             echo "=== TESTING ROUTE: $ROTA ==="
             adb logcat -c
             adb shell am start -S -W -n br.com.raevan.familialm/.MainActivity --es rota_inicial "$ROTA"

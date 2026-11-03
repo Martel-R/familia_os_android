@@ -13,8 +13,8 @@ android {
         applicationId = "br.com.raevan.familialm"
         minSdk = 29
         targetSdk = 35
-        versionCode = 4
-        versionName = "2.2-multitenant"
+        versionCode = 5
+        versionName = "2.3-compras-ia"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
