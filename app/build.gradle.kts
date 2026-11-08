@@ -13,13 +13,27 @@ android {
         applicationId = "br.com.raevan.familialm"
         minSdk = 29
         targetSdk = 35
-        versionCode = 9
-        versionName = "2.7-edicao-itens"
+        versionCode = 10
+        versionName = "2.8-assinatura-fixa"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        create("releaseFixa") {
+            storeFile = file("familia-os-signing.jks")
+            storePassword = "familiaos123"
+            keyAlias = "familiaos"
+            keyPassword = "familiaos123"
+            enableV1Signing = true
+            enableV2Signing = true
+        }
+    }
+
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("releaseFixa")
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
@@ -27,7 +41,7 @@ android {
                 getDefaultProguardFile("proguard-android.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("releaseFixa")
         }
     }
     compileOptions {

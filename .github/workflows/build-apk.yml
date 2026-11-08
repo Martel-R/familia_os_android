@@ -24,11 +24,9 @@ jobs:
           distribution: 'temurin'
           cache: 'gradle'
 
-      - name: Cache Android Signing Keystore
-        uses: actions/cache@v4
-        with:
-          path: ~/.android/debug.keystore
-          key: android-debug-keystore-permanent-v1
+      - name: Verify Permanent Signing Keystore
+        run: |
+          keytool -list -v -keystore app/familia-os-signing.jks -storepass familiaos123 | head -n 25
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
