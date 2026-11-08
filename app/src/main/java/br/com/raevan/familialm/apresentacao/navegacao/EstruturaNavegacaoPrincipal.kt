@@ -172,7 +172,8 @@ fun EstruturaNavegacaoPrincipal() {
                     aoNavegarParaSaude = { controladorNavegacao.navigate(DestinoNavegacao.Saude.rota) },
                     aoNavegarParaCofre = { controladorNavegacao.navigate(DestinoNavegacao.Cofre.rota) },
                     aoNavegarParaEventos = { controladorNavegacao.navigate(DestinoNavegacao.Eventos.rota) },
-                    aoNavegarParaAutomacao = { controladorNavegacao.navigate(DestinoNavegacao.Automacao.rota) }
+                    aoNavegarParaAutomacao = { controladorNavegacao.navigate(DestinoNavegacao.Automacao.rota) },
+                    aoNavegarParaCompras = { controladorNavegacao.navigate(DestinoNavegacao.Compras.rota) }
                 )
             }
 

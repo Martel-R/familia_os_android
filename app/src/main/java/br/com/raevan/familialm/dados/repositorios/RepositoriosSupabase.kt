@@ -1726,23 +1726,59 @@ class RepositorioComprasSupabase : RepositorioCompras {
         throw IllegalStateException(ultimoErro)
     }
 
+    private fun fazerUploadImagemRecibo(
+        familiaId: String,
+        bytesImagem: ByteArray?,
+        mimeTypeImagem: String?
+    ): String? {
+        if (bytesImagem == null || bytesImagem.isEmpty()) return null
+        return try {
+            val ext = if (mimeTypeImagem == "application/pdf") "pdf" else "jpg"
+            val caminho = "recibos/$familiaId/${System.currentTimeMillis()}_cupom.$ext"
+            val urlUpload = "${ClienteSupabase.SUPABASE_URL}/storage/v1/object/familia-os-recibos/$caminho"
+            val conn = (java.net.URL(urlUpload).openConnection() as java.net.HttpURLConnection).apply {
+                requestMethod = "POST"
+                doOutput = true
+                connectTimeout = 15000
+                readTimeout = 25000
+                setRequestProperty("apikey", ClienteSupabase.SUPABASE_ANON_KEY)
+                setRequestProperty("Authorization", "Bearer ${ClienteSupabase.SUPABASE_ANON_KEY}")
+                setRequestProperty("User-Agent", ClienteSupabase.USER_AGENT_PADRAO)
+                setRequestProperty("Content-Type", mimeTypeImagem ?: "image/jpeg")
+                setRequestProperty("x-upsert", "true")
+            }
+            conn.outputStream.use { it.write(bytesImagem) }
+            if (conn.responseCode in 200..299) {
+                "${ClienteSupabase.SUPABASE_URL}/storage/v1/object/public/familia-os-recibos/$caminho"
+            } else {
+                null
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     override suspend fun salvarReciboComItens(
         fornecedor: String,
         dataCompra: String,
         valorTotal: Double,
         itens: List<ItemCompraExtraido>,
-        lancarEmFinancas: Boolean
+        lancarEmFinancas: Boolean,
+        bytesImagem: ByteArray?,
+        mimeTypeImagem: String?
     ) = withContext(Dispatchers.IO) {
         val familiaId = obterFamiliaAtivaSegura()
         val reciboId = UUID.randomUUID().toString()
         val dataFormatada = dataCompra.ifBlank { java.time.LocalDate.now().toString() }
+        val urlImagem = fazerUploadImagemRecibo(familiaId, bytesImagem, mimeTypeImagem)
 
         val reciboDto = ReciboCompraDto(
             id = reciboId,
             familiaId = familiaId,
             fornecedor = fornecedor.trim().ifBlank { "Supermercado" },
             dataCompra = dataFormatada,
-            valorTotal = valorTotal
+            valorTotal = valorTotal,
+            caminhoImagemRecibo = urlImagem
         )
         ClienteSupabase.client.from("compras_recibos").insert(reciboDto)
 

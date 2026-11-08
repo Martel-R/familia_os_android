@@ -13,8 +13,11 @@ data class EstadoCompras(
     val carregando: Boolean = false,
     val analisandoIa: Boolean = false,
     val salvandoNota: Boolean = false,
+    val inserirAutomaticamente: Boolean = true,
     val recibos: List<ReciboCompra> = emptyList(),
     val reciboExtraidoPendente: ReciboCompra? = null,
+    val bytesImagemPendente: ByteArray? = null,
+    val mimeTypePendente: String? = null,
     val mensagemSucesso: String? = null,
     val mensagemErro: String? = null
 )
@@ -45,11 +48,17 @@ class ComprasViewModel : ViewModel() {
         }
     }
 
+    fun alternarInserirAutomaticamente(ativo: Boolean) {
+        _estado.update { it.copy(inserirAutomaticamente = ativo) }
+    }
+
     fun analisarNotaFiscalComIa(bytesArquivo: ByteArray, mimeType: String, nomeArquivo: String) {
         viewModelScope.launch {
             _estado.update {
                 it.copy(
                     analisandoIa = true,
+                    bytesImagemPendente = bytesArquivo,
+                    mimeTypePendente = mimeType,
                     mensagemErro = null,
                     mensagemSucesso = null
                 )
@@ -60,11 +69,38 @@ class ComprasViewModel : ViewModel() {
                     mimeType = mimeType,
                     nomeArquivo = nomeArquivo
                 )
-                _estado.update {
-                    it.copy(
-                        analisandoIa = false,
-                        reciboExtraidoPendente = reciboExtraido
+                val autoInserir = _estado.value.inserirAutomaticamente
+                val temDadosValidos = reciboExtraido.itens.isNotEmpty() || reciboExtraido.valorTotal > 0.0
+
+                if (autoInserir && temDadosValidos) {
+                    val fornecedorFinal = reciboExtraido.fornecedor?.ifBlank { "Supermercado" } ?: "Supermercado"
+                    val dataFinal = reciboExtraido.dataCompra ?: java.time.LocalDate.now().toString()
+                    repositorioCompras.salvarReciboComItens(
+                        fornecedor = fornecedorFinal,
+                        dataCompra = dataFinal,
+                        valorTotal = reciboExtraido.valorTotal,
+                        itens = reciboExtraido.itens,
+                        lancarEmFinancas = true,
+                        bytesImagem = bytesArquivo,
+                        mimeTypeImagem = mimeType
                     )
+                    _estado.update {
+                        it.copy(
+                            analisandoIa = false,
+                            reciboExtraidoPendente = null,
+                            bytesImagemPendente = null,
+                            mimeTypePendente = null,
+                            mensagemSucesso = "Compra em $fornecedorFinal inserida com ${reciboExtraido.itens.size} itens extraídos pela câmera!"
+                        )
+                    }
+                    observarDados()
+                } else {
+                    _estado.update {
+                        it.copy(
+                            analisandoIa = false,
+                            reciboExtraidoPendente = reciboExtraido
+                        )
+                    }
                 }
             } catch (e: Exception) {
                 _estado.update {
@@ -87,13 +123,21 @@ class ComprasViewModel : ViewModel() {
                     valorTotal = 0.0,
                     itens = emptyList()
                 ),
+                bytesImagemPendente = null,
+                mimeTypePendente = null,
                 mensagemErro = null
             )
         }
     }
 
     fun cancelarRevisaoNota() {
-        _estado.update { it.copy(reciboExtraidoPendente = null) }
+        _estado.update {
+            it.copy(
+                reciboExtraidoPendente = null,
+                bytesImagemPendente = null,
+                mimeTypePendente = null
+            )
+        }
     }
 
     fun confirmarRegistroNota(
@@ -104,6 +148,8 @@ class ComprasViewModel : ViewModel() {
         lancarEmFinancas: Boolean
     ) {
         viewModelScope.launch {
+            val bytesImg = _estado.value.bytesImagemPendente
+            val mimeImg = _estado.value.mimeTypePendente
             _estado.update { it.copy(salvandoNota = true, mensagemErro = null) }
             try {
                 repositorioCompras.salvarReciboComItens(
@@ -111,12 +157,16 @@ class ComprasViewModel : ViewModel() {
                     dataCompra = dataCompra,
                     valorTotal = valorTotal,
                     itens = itens,
-                    lancarEmFinancas = lancarEmFinancas
+                    lancarEmFinancas = lancarEmFinancas,
+                    bytesImagem = bytesImg,
+                    mimeTypeImagem = mimeImg
                 )
                 _estado.update {
                     it.copy(
                         salvandoNota = false,
                         reciboExtraidoPendente = null,
+                        bytesImagemPendente = null,
+                        mimeTypePendente = null,
                         mensagemSucesso = "Nota de $fornecedor registrada com ${itens.size} itens!"
                     )
                 }

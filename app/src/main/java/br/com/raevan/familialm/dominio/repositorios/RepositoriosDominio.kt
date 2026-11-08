@@ -125,7 +125,9 @@ interface RepositorioCompras {
         dataCompra: String,
         valorTotal: Double,
         itens: List<ItemCompraExtraido>,
-        lancarEmFinancas: Boolean = true
+        lancarEmFinancas: Boolean = true,
+        bytesImagem: ByteArray? = null,
+        mimeTypeImagem: String? = null
     )
     suspend fun adicionarItemAoRecibo(
         reciboId: String,

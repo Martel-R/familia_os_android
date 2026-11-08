@@ -8,6 +8,7 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -18,10 +19,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -38,6 +42,33 @@ import br.com.raevan.familialm.nucleo.tema.*
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.util.UUID
+
+private const val PREFS_CAMERA_COMPRAS = "familia_os_camera_compras_prefs"
+private const val KEY_CAMINHO_FOTO = "ultimo_caminho_foto_camera"
+
+private fun salvarCaminhoFotoPreferencias(contexto: Context, caminho: String) {
+    try {
+        contexto.getSharedPreferences(PREFS_CAMERA_COMPRAS, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_CAMINHO_FOTO, caminho)
+            .apply()
+    } catch (_: Throwable) {}
+}
+
+private fun obterCaminhoFotoPreferencias(contexto: Context): String? {
+    return try {
+        contexto.getSharedPreferences(PREFS_CAMERA_COMPRAS, Context.MODE_PRIVATE)
+            .getString(KEY_CAMINHO_FOTO, null)
+    } catch (_: Throwable) {
+        null
+    }
+}
+
+private fun bitmapParaBytesJpeg(bitmap: Bitmap): ByteArray {
+    val out = ByteArrayOutputStream()
+    bitmap.compress(Bitmap.CompressFormat.JPEG, 88, out)
+    return out.toByteArray()
+}
 
 private fun comprimirImagemSeNecessario(bytesOriginais: ByteArray): ByteArray {
     return try {
@@ -85,14 +116,31 @@ fun TelaComprasInteligentes(
     val contexto = LocalContext.current
 
     var busca by remember { mutableStateOf("") }
-    var arquivoCameraAtual by remember { mutableStateOf<File?>(null) }
+    var caminhoArquivoCamera by rememberSaveable { mutableStateOf<String?>(null) }
     var reciboParaAdicionarItem by remember { mutableStateOf<ReciboCompra?>(null) }
 
-    // Launcher para capturar foto com a câmera em alta resolução
+    // Fallback de câmera rápida (Bitmap direto) caso FileProvider falhe em algum aparelho
+    val launcherCameraPreview = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicturePreview()
+    ) { bitmap: Bitmap? ->
+        if (bitmap != null) {
+            try {
+                val bytes = bitmapParaBytesJpeg(bitmap)
+                viewModel.analisarNotaFiscalComIa(
+                    bytesArquivo = bytes,
+                    mimeType = "image/jpeg",
+                    nomeArquivo = "cupom_camera_${System.currentTimeMillis()}.jpg"
+                )
+            } catch (_: Throwable) {}
+        }
+    }
+
+    // Launcher principal para capturar foto com a câmera em alta resolução
     val launcherCamera = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture()
     ) { sucesso ->
-        val arq = arquivoCameraAtual
+        val caminho = caminhoArquivoCamera ?: obterCaminhoFotoPreferencias(contexto)
+        val arq = caminho?.let { File(it) }
         if (sucesso && arq != null && arq.exists() && arq.length() > 0) {
             try {
                 val bytes = comprimirImagemSeNecessario(arq.readBytes())
@@ -108,9 +156,14 @@ fun TelaComprasInteligentes(
     val iniciarCapturaCamera = {
         try {
             val (arq, uri) = criarUriFotoTemporaria(contexto)
-            arquivoCameraAtual = arq
+            caminhoArquivoCamera = arq.absolutePath
+            salvarCaminhoFotoPreferencias(contexto, arq.absolutePath)
             launcherCamera.launch(uri)
-        } catch (_: Throwable) {}
+        } catch (_: Throwable) {
+            try {
+                launcherCameraPreview.launch(null)
+            } catch (_: Throwable) {}
+        }
     }
 
     val launcherPermissaoCamera = rememberLauncherForActivityResult(
@@ -234,15 +287,40 @@ fun TelaComprasInteligentes(
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Text(
-                            text = "🤖 Extração Inteligente de Nota Fiscal",
+                            text = "📸 Importação com Câmera & IA",
                             fontWeight = FontWeight.Bold,
                             fontSize = 15.sp
                         )
                         Text(
-                            text = "Tire uma foto da nota ou importe um arquivo (imagem ou PDF) para a IA identificar o mercado e registrar todos os itens comprados.",
+                            text = "Fotografe a nota fiscal da compra com a câmera do celular (ou importe foto/PDF) para a IA extrair e inserir automaticamente todos os itens no módulo de Compras Inteligentes.",
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { viewModel.alternarInserirAutomaticamente(!estado.inserirAutomaticamente) },
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Inserir registros automaticamente ao fotografar",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    text = "Salva a compra e todos os itens extraídos pela câmera direto na lista",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = estado.inserirAutomaticamente,
+                                onCheckedChange = { viewModel.alternarInserirAutomaticamente(it) }
+                            )
+                        }
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -257,7 +335,7 @@ fun TelaComprasInteligentes(
                             ) {
                                 Icon(Icons.Default.PhotoCamera, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("Tirar Foto", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                Text("Importar c/ Câmera", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                             }
 
                             FilledTonalButton(
@@ -270,7 +348,7 @@ fun TelaComprasInteligentes(
                             ) {
                                 Icon(Icons.Default.UploadFile, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("Importar Nota", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                Text("Arquivo / Galeria", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                             }
                         }
 
@@ -287,9 +365,18 @@ fun TelaComprasInteligentes(
                 }
             }
 
-            // Indicador de processamento da IA
+            // Indicador de processamento da IA + miniatura da foto capturada
             if (estado.analisandoIa) {
                 item {
+                    val bitmapPreview = remember(estado.bytesImagemPendente) {
+                        estado.bytesImagemPendente?.let {
+                            try {
+                                BitmapFactory.decodeByteArray(it, 0, it.size)
+                            } catch (_: Throwable) {
+                                null
+                            }
+                        }
+                    }
                     Card(
                         shape = RoundedCornerShape(14.dp),
                         colors = CardDefaults.cardColors(containerColor = CorCompras.copy(alpha = 0.12f)),
@@ -300,20 +387,34 @@ fun TelaComprasInteligentes(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            CircularProgressIndicator(
-                                color = CorCompras,
-                                modifier = Modifier.size(28.dp),
-                                strokeWidth = 3.dp
-                            )
-                            Column {
+                            if (bitmapPreview != null) {
+                                Image(
+                                    bitmap = bitmapPreview.asImageBitmap(),
+                                    contentDescription = "Foto da nota",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .size(56.dp)
+                                        .clip(RoundedCornerShape(10.dp))
+                                )
+                            } else {
+                                CircularProgressIndicator(
+                                    color = CorCompras,
+                                    modifier = Modifier.size(28.dp),
+                                    strokeWidth = 3.dp
+                                )
+                            }
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "Analisando nota fiscal com a IA...",
+                                    text = "Lendo foto da câmera com a IA...",
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 14.sp,
                                     color = CorCompras
                                 )
                                 Text(
-                                    text = "Extraindo estabelecimento, data, valor total e todos os itens comprados.",
+                                    text = if (estado.inserirAutomaticamente)
+                                        "Extraindo produtos e inserindo os registros automaticamente em Compras Inteligentes..."
+                                    else
+                                        "Extraindo estabelecimento, data, valor total e todos os itens comprados...",
                                     fontSize = 12.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )

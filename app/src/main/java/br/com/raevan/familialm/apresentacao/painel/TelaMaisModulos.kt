@@ -58,6 +58,16 @@ fun TelaMaisModulos(
 
             item {
                 CartaoItemModulo(
+                    titulo = "Compras Inteligentes & Câmera IA",
+                    subtitulo = "Importação de notas com câmera para inserir itens comprados",
+                    icone = Icons.AutoMirrored.Filled.ReceiptLong,
+                    corDestaque = CorCompras,
+                    aoClicar = aoNavegarParaCompras
+                )
+            }
+
+            item {
+                CartaoItemModulo(
                     titulo = "Membros & Contas da Família",
                     subtitulo = "Perfis multi-tenant, convites, senhas e saldo de moedas",
                     icone = Icons.Default.People,
@@ -103,16 +113,6 @@ fun TelaMaisModulos(
                     icone = Icons.Default.Sensors,
                     corDestaque = CorAutomacao,
                     aoClicar = aoNavegarParaAutomacao
-                )
-            }
-
-            item {
-                CartaoItemModulo(
-                    titulo = "Compras Inteligentes & OCR",
-                    subtitulo = "Digitalização de cupons fiscais e controle de compras",
-                    icone = Icons.AutoMirrored.Filled.ReceiptLong,
-                    corDestaque = CorCompras,
-                    aoClicar = aoNavegarParaCompras
                 )
             }
 

@@ -614,7 +614,9 @@ class RepositorioComprasMemoria : RepositorioCompras {
         dataCompra: String,
         valorTotal: Double,
         itens: List<ItemCompraExtraido>,
-        lancarEmFinancas: Boolean
+        lancarEmFinancas: Boolean,
+        bytesImagem: ByteArray?,
+        mimeTypeImagem: String?
     ) = withContext(Dispatchers.IO) {
         val id = UUID.randomUUID().toString()
         val novoRecibo = ReciboCompra(

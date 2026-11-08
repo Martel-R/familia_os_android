@@ -33,7 +33,8 @@ fun TelaPainelPrincipal(
     aoNavegarParaSaude: () -> Unit,
     aoNavegarParaCofre: () -> Unit,
     aoNavegarParaEventos: () -> Unit,
-    aoNavegarParaAutomacao: () -> Unit
+    aoNavegarParaAutomacao: () -> Unit,
+    aoNavegarParaCompras: () -> Unit = {}
 ) {
     val estado by viewModel.estado.collectAsState()
     var exibirDialogoWifi by remember { mutableStateOf(false) }
@@ -175,6 +176,57 @@ fun TelaPainelPrincipal(
                                 )
                             }
                         }
+                    }
+                }
+            }
+
+            // Atalho Direto: Importar Compras com Câmera (IA)
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { aoNavegarParaCompras() },
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = CorCompras.copy(alpha = 0.1f)),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, CorCompras.copy(alpha = 0.3f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .background(CorCompras.copy(alpha = 0.18f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PhotoCamera,
+                                contentDescription = "Importar Compra com Câmera",
+                                tint = CorCompras,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Compras Inteligentes • Câmera IA",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                                color = CorCompras
+                            )
+                            Text(
+                                text = "Fotografe a nota fiscal para extrair e inserir todos os itens comprados",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.Default.ChevronRight,
+                            contentDescription = null,
+                            tint = CorCompras
+                        )
                     }
                 }
             }
