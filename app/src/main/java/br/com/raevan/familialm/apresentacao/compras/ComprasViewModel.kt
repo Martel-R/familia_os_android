@@ -103,10 +103,11 @@ class ComprasViewModel : ViewModel() {
                     }
                 }
             } catch (e: Exception) {
+                val msgLimpa = (e.message ?: "Erro desconhecido").substringBefore("URL:").trim()
                 _estado.update {
                     it.copy(
                         analisandoIa = false,
-                        mensagemErro = "Não foi possível extrair os itens com a IA: ${e.message ?: "Erro desconhecido"}"
+                        mensagemErro = "Não foi possível processar a nota: $msgLimpa"
                     )
                 }
             }

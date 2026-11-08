@@ -25,7 +25,7 @@ data class UsuarioDto(
     @SerialName("saldo_moedas") val saldoMoedas: Int = 0,
     @SerialName("avatar_url") val avatarUrl: String? = null,
     val ativo: Boolean = true,
-    @SerialName("criado_em") val criadoEm: String = ""
+    @SerialName("criado_em") val criadoEm: String? = null
 )
 
 @Serializable
@@ -41,7 +41,7 @@ data class TransacaoDto(
     @SerialName("data_pagamento") val dataPagamento: String? = null,
     val status: String = "pendente",
     val observacoes: String? = null,
-    @SerialName("criado_em") val criadoEm: String = ""
+    @SerialName("criado_em") val criadoEm: String? = null
 )
 
 @Serializable
@@ -68,7 +68,7 @@ data class TarefaRotinaDto(
     @SerialName("esta_concluida") val estaConcluida: Boolean = false,
     @SerialName("ultima_conclusao_data") val ultimaConclusaoData: String? = null,
     @SerialName("aberta_para_todos") val abertaParaTodos: Boolean = false,
-    @SerialName("atualizado_em") val atualizadoEm: String = ""
+    @SerialName("atualizado_em") val atualizadoEm: String? = null
 )
 
 @Serializable
@@ -95,7 +95,7 @@ data class EventoDto(
     val destino: String? = null,
     val descricao: String? = null,
     @SerialName("orcamento_estimado") val orcamentoEstimado: Double? = null,
-    @SerialName("criado_em") val criadoEm: String = ""
+    @SerialName("criado_em") val criadoEm: String? = null
 )
 
 @Serializable
@@ -176,7 +176,7 @@ data class CheckinSaudeDto(
     @SerialName("usuario_id") val usuarioId: String = "",
     @SerialName("nivel_humor") val nivelHumor: Int = 3,
     @SerialName("notas_diario") val notasDiario: String? = null,
-    @SerialName("criado_em") val criadoEm: String = ""
+    @SerialName("criado_em") val criadoEm: String? = null
 )
 
 @Serializable
@@ -205,7 +205,7 @@ data class MedicamentoDto(
     val dosagem: String = "",
     val horario: String = "",
     @SerialName("foi_tomado_hoje") val foiTomadoHoje: Boolean = false,
-    @SerialName("criado_em") val criadoEm: String = ""
+    @SerialName("criado_em") val criadoEm: String? = null
 )
 
 @Serializable
@@ -250,7 +250,7 @@ data class MetricaVitalDto(
     @SerialName("valor_secundario") val valorSecundario: Double? = null,
     val unidade: String = "",
     val observacao: String? = null,
-    @SerialName("data_medicao") val dataMedicao: String = ""
+    @SerialName("data_medicao") val dataMedicao: String? = null
 )
 
 @Serializable
@@ -285,7 +285,7 @@ data class ReciboCompraDto(
     @SerialName("data_compra") val dataCompra: String? = null,
     @SerialName("valor_total") val valorTotal: Double = 0.0,
     @SerialName("caminho_imagem_recibo") val caminhoImagemRecibo: String? = null,
-    @SerialName("criado_em") val criadoEm: String = ""
+    @SerialName("criado_em") val criadoEm: String? = null
 )
 
 @Serializable

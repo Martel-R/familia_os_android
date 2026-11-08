@@ -417,7 +417,7 @@ class RepositorioUsuariosSupabase : RepositorioUsuarios {
         },
         saldoMoedas = saldoMoedas,
         avatarUrl = normalizarAvatar(avatarUrl),
-        criadoEm = criadoEm,
+        criadoEm = criadoEm ?: "",
         familiaId = familiaId,
         email = email,
         ativo = ativo
@@ -576,7 +576,7 @@ class RepositorioFinancasSupabase : RepositorioFinancas {
             else -> StatusPagamento.PENDENTE
         },
         observacoes = observacoes,
-        criadoEm = criadoEm
+        criadoEm = criadoEm ?: ""
     )
 
     private fun CofrinhoDto.paraDominio() = Cofrinho(
@@ -748,7 +748,7 @@ class RepositorioRotinasSupabase(
         },
         moedasRecompensa = moedasRecompensa,
         estaConcluida = estaConcluida,
-        atualizadoEm = atualizadoEm,
+        atualizadoEm = atualizadoEm ?: "",
         diasSemana = diasSemana,
         diaMes = diaMes,
         abertaParaTodos = abertaParaTodos || responsavelId == null,
@@ -891,7 +891,7 @@ class RepositorioEventosSupabase : RepositorioEventos {
         dataEvento = dataEvento,
         descricao = descricao,
         orcamentoEstimado = orcamentoEstimado,
-        criadoEm = criadoEm
+        criadoEm = criadoEm ?: ""
     )
 
     private fun ConvidadoDto.paraDominio() = Convidado(
@@ -1082,7 +1082,7 @@ class RepositorioSaudeSupabase : RepositorioSaude {
                 nomeUsuario = usuarios[dto.usuarioId]?.nome?.split(" ")?.firstOrNull() ?: "Membro",
                 nivelHumor = dto.nivelHumor,
                 notasDiario = dto.notasDiario,
-                criadoEm = dto.criadoEm
+                criadoEm = dto.criadoEm ?: ""
             )
         })
     }.catch { emit(emptyList()) }.flowOn(Dispatchers.IO)
@@ -1251,7 +1251,7 @@ class RepositorioSaudeSupabase : RepositorioSaude {
                 valorSecundario = dto.valorSecundario,
                 unidade = dto.unidade,
                 observacao = dto.observacao,
-                dataMedicao = dto.dataMedicao
+                dataMedicao = dto.dataMedicao ?: ""
             )
         })
     }.catch { emit(emptyList()) }.flowOn(Dispatchers.IO)
@@ -1367,7 +1367,7 @@ class RepositorioSaudeSupabase : RepositorioSaude {
                 valorSecundario = metrica.valorSecundario,
                 unidade = metrica.unidade,
                 observacao = metrica.observacao,
-                dataMedicao = metrica.dataMedicao
+                dataMedicao = metrica.dataMedicao.takeIf { it.matches(Regex("^\\d{4}-\\d{2}-\\d{2}.*")) }
             )
             ClienteSupabase.client.from("saude_metricas_vitais").insert(dto)
         } catch (_: Exception) {}
@@ -1758,6 +1758,24 @@ class RepositorioComprasSupabase : RepositorioCompras {
         }
     }
 
+    private fun normalizarDataCompraIso(dataBruta: String?): String {
+        val limpa = dataBruta?.trim().orEmpty()
+        if (limpa.isEmpty() || limpa == "null") {
+            return java.time.LocalDate.now().toString()
+        }
+        // Formato YYYY-MM-DD (ou YYYY-MM-DDTHH:mm:ss)
+        val regexIso = Regex("^(\\d{4}-\\d{2}-\\d{2}).*")
+        regexIso.matchEntire(limpa)?.let { return it.groupValues[1] }
+
+        // Formato DD/MM/YYYY ou DD-MM-YYYY
+        val regexBr = Regex("^(\\d{2})[/\\-](\\d{2})[/\\-](\\d{4}).*")
+        regexBr.matchEntire(limpa)?.let {
+            return "${it.groupValues[3]}-${it.groupValues[2]}-${it.groupValues[1]}"
+        }
+
+        return java.time.LocalDate.now().toString()
+    }
+
     override suspend fun salvarReciboComItens(
         fornecedor: String,
         dataCompra: String,
@@ -1769,7 +1787,7 @@ class RepositorioComprasSupabase : RepositorioCompras {
     ) = withContext(Dispatchers.IO) {
         val familiaId = obterFamiliaAtivaSegura()
         val reciboId = UUID.randomUUID().toString()
-        val dataFormatada = dataCompra.ifBlank { java.time.LocalDate.now().toString() }
+        val dataFormatada = normalizarDataCompraIso(dataCompra)
         val urlImagem = fazerUploadImagemRecibo(familiaId, bytesImagem, mimeTypeImagem)
 
         val reciboDto = ReciboCompraDto(
@@ -1875,6 +1893,6 @@ class RepositorioComprasSupabase : RepositorioCompras {
         valorTotal = valorTotal,
         caminhoImagemRecibo = caminhoImagemRecibo,
         itens = itens,
-        criadoEm = criadoEm
+        criadoEm = criadoEm ?: ""
     )
 }
