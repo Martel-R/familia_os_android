@@ -136,6 +136,20 @@ interface RepositorioCompras {
         valorUnitario: Double,
         categoriaSugerida: String
     )
+    suspend fun atualizarItemRecibo(
+        itemId: String,
+        reciboId: String,
+        nomeProduto: String,
+        quantidade: Double,
+        valorUnitario: Double,
+        categoriaSugerida: String
+    )
+    suspend fun atualizarCabecalhoRecibo(
+        reciboId: String,
+        fornecedor: String,
+        dataCompra: String,
+        valorTotal: Double
+    )
     suspend fun excluirRecibo(reciboId: String)
     suspend fun excluirItemRecibo(itemId: String)
 }

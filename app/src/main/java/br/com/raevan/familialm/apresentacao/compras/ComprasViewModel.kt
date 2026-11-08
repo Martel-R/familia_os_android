@@ -13,7 +13,7 @@ data class EstadoCompras(
     val carregando: Boolean = false,
     val analisandoIa: Boolean = false,
     val salvandoNota: Boolean = false,
-    val inserirAutomaticamente: Boolean = true,
+    val inserirAutomaticamente: Boolean = false,
     val recibos: List<ReciboCompra> = emptyList(),
     val reciboExtraidoPendente: ReciboCompra? = null,
     val bytesImagemPendente: ByteArray? = null,
@@ -200,6 +200,56 @@ class ComprasViewModel : ViewModel() {
             )
             _estado.update { it.copy(mensagemSucesso = "Item '$nomeProduto' adicionado à nota!") }
             observarDados()
+        }
+    }
+
+    fun atualizarItemEmRecibo(
+        itemId: String,
+        reciboId: String,
+        nomeProduto: String,
+        quantidade: Double,
+        valorUnitario: Double,
+        categoria: String
+    ) {
+        viewModelScope.launch {
+            try {
+                repositorioCompras.atualizarItemRecibo(
+                    itemId = itemId,
+                    reciboId = reciboId,
+                    nomeProduto = nomeProduto,
+                    quantidade = quantidade,
+                    valorUnitario = valorUnitario,
+                    categoriaSugerida = categoria
+                )
+                _estado.update { it.copy(mensagemSucesso = "Item '$nomeProduto' atualizado com sucesso!") }
+                observarDados()
+            } catch (e: Exception) {
+                val msgLimpa = (e.message ?: "Erro desconhecido").substringBefore("URL:").trim()
+                _estado.update { it.copy(mensagemErro = "Erro ao atualizar item: $msgLimpa") }
+            }
+        }
+    }
+
+    fun atualizarCabecalhoDeRecibo(
+        reciboId: String,
+        fornecedor: String,
+        dataCompra: String,
+        valorTotal: Double
+    ) {
+        viewModelScope.launch {
+            try {
+                repositorioCompras.atualizarCabecalhoRecibo(
+                    reciboId = reciboId,
+                    fornecedor = fornecedor,
+                    dataCompra = dataCompra,
+                    valorTotal = valorTotal
+                )
+                _estado.update { it.copy(mensagemSucesso = "Dados da nota atualizados!") }
+                observarDados()
+            } catch (e: Exception) {
+                val msgLimpa = (e.message ?: "Erro desconhecido").substringBefore("URL:").trim()
+                _estado.update { it.copy(mensagemErro = "Erro ao atualizar nota: $msgLimpa") }
+            }
         }
     }
 

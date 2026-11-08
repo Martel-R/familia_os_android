@@ -1852,7 +1852,62 @@ class RepositorioComprasSupabase : RepositorioCompras {
                 categoriaSugerida = categoriaSugerida.ifBlank { "Geral" }
             )
             ClienteSupabase.client.from("compras_itens_extraidos").insert(dto)
+            recalcularValorTotalRecibo(reciboId)
         } catch (_: Exception) {}
+        Unit
+    }
+
+    private suspend fun recalcularValorTotalRecibo(reciboId: String) {
+        try {
+            val itensAtuais = ClienteSupabase.client.from("compras_itens_extraidos")
+                .select { filter { eq("recibo_id", reciboId) } }
+                .decodeList<ItemCompraExtraidoDto>()
+            if (itensAtuais.isNotEmpty()) {
+                val novoTotal = itensAtuais.sumOf { it.quantidade * it.valorUnitario }
+                ClienteSupabase.client.from("compras_recibos").update({
+                    set("valor_total", novoTotal)
+                }) {
+                    filter { eq("id", reciboId) }
+                }
+            }
+        } catch (_: Exception) {}
+    }
+
+    override suspend fun atualizarItemRecibo(
+        itemId: String,
+        reciboId: String,
+        nomeProduto: String,
+        quantidade: Double,
+        valorUnitario: Double,
+        categoriaSugerida: String
+    ) = withContext(Dispatchers.IO) {
+        val qtdFinal = if (quantidade > 0.0) quantidade else 1.0
+        ClienteSupabase.client.from("compras_itens_extraidos").update({
+            set("nome_produto", nomeProduto.trim())
+            set("quantidade", qtdFinal)
+            set("valor_unitario", valorUnitario)
+            set("categoria_sugerida", categoriaSugerida.ifBlank { "Geral" })
+        }) {
+            filter { eq("id", itemId) }
+        }
+        recalcularValorTotalRecibo(reciboId)
+        Unit
+    }
+
+    override suspend fun atualizarCabecalhoRecibo(
+        reciboId: String,
+        fornecedor: String,
+        dataCompra: String,
+        valorTotal: Double
+    ) = withContext(Dispatchers.IO) {
+        val dataFormatada = normalizarDataCompraIso(dataCompra)
+        ClienteSupabase.client.from("compras_recibos").update({
+            set("fornecedor", fornecedor.trim().ifBlank { "Supermercado" })
+            set("data_compra", dataFormatada)
+            set("valor_total", valorTotal)
+        }) {
+            filter { eq("id", reciboId) }
+        }
         Unit
     }
 

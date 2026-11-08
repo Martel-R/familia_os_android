@@ -118,6 +118,8 @@ fun TelaComprasInteligentes(
     var busca by remember { mutableStateOf("") }
     var caminhoArquivoCamera by rememberSaveable { mutableStateOf<String?>(null) }
     var reciboParaAdicionarItem by remember { mutableStateOf<ReciboCompra?>(null) }
+    var itemParaEditar by remember { mutableStateOf<Pair<ReciboCompra, ItemCompraExtraido>?>(null) }
+    var reciboParaEditarCabecalho by remember { mutableStateOf<ReciboCompra?>(null) }
 
     // Fallback de câmera rápida (Bitmap direto) caso FileProvider falhe em algum aparelho
     val launcherCameraPreview = rememberLauncherForActivityResult(
@@ -581,6 +583,8 @@ fun TelaComprasInteligentes(
                 ItemCardRecibo(
                     recibo = recibo,
                     aoAdicionarItem = { reciboParaAdicionarItem = recibo },
+                    aoEditarRecibo = { reciboParaEditarCabecalho = recibo },
+                    aoEditarItem = { item -> itemParaEditar = recibo to item },
                     aoExcluirRecibo = { viewModel.excluirRecibo(recibo.id) },
                     aoExcluirItem = { itemId -> viewModel.excluirItemRecibo(itemId) }
                 )
@@ -627,12 +631,54 @@ fun TelaComprasInteligentes(
             }
         )
     }
+
+    // Modal para editar um item já salvo de uma nota
+    val parItemEdicao = itemParaEditar
+    if (parItemEdicao != null) {
+        val (reciboOrigem, itemAtual) = parItemEdicao
+        DialogoEditarItemRecibo(
+            nomeFornecedor = reciboOrigem.fornecedor ?: "Nota Fiscal",
+            itemInicial = itemAtual,
+            aoFechar = { itemParaEditar = null },
+            aoSalvar = { nomeProd, qtd, valorUnit, cat ->
+                viewModel.atualizarItemEmRecibo(
+                    itemId = itemAtual.id,
+                    reciboId = reciboOrigem.id,
+                    nomeProduto = nomeProd,
+                    quantidade = qtd,
+                    valorUnitario = valorUnit,
+                    categoria = cat
+                )
+                itemParaEditar = null
+            }
+        )
+    }
+
+    // Modal para editar os dados principais da nota já salva (Supermercado, Data, Valor Total)
+    val reciboCabecalho = reciboParaEditarCabecalho
+    if (reciboCabecalho != null) {
+        DialogoEditarCabecalhoRecibo(
+            reciboInicial = reciboCabecalho,
+            aoFechar = { reciboParaEditarCabecalho = null },
+            aoSalvar = { forn, data, total ->
+                viewModel.atualizarCabecalhoDeRecibo(
+                    reciboId = reciboCabecalho.id,
+                    fornecedor = forn,
+                    dataCompra = data,
+                    valorTotal = total
+                )
+                reciboParaEditarCabecalho = null
+            }
+        )
+    }
 }
 
 @Composable
 fun ItemCardRecibo(
     recibo: ReciboCompra,
     aoAdicionarItem: () -> Unit,
+    aoEditarRecibo: () -> Unit,
+    aoEditarItem: (ItemCompraExtraido) -> Unit,
     aoExcluirRecibo: () -> Unit,
     aoExcluirItem: (String) -> Unit
 ) {
@@ -682,6 +728,17 @@ fun ItemCardRecibo(
                             Text("Item", fontSize = 11.sp)
                         }
                         IconButton(
+                            onClick = aoEditarRecibo,
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Edit,
+                                contentDescription = "Editar Nota",
+                                tint = CorCompras,
+                                modifier = Modifier.size(17.dp)
+                            )
+                        }
+                        IconButton(
                             onClick = aoExcluirRecibo,
                             modifier = Modifier.size(28.dp)
                         ) {
@@ -702,9 +759,9 @@ fun ItemCardRecibo(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    text = "Itens Comprados (${recibo.itens.size}):",
+                    text = "Itens Comprados (${recibo.itens.size}) • Toque no item ou no lápis ✏️ para corrigir:",
                     fontWeight = FontWeight.SemiBold,
-                    fontSize = 12.sp,
+                    fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
@@ -715,6 +772,7 @@ fun ItemCardRecibo(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .clickable { aoEditarItem(item) }
                             .padding(vertical = 4.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
@@ -738,6 +796,17 @@ fun ItemCardRecibo(
                                 fontWeight = FontWeight.SemiBold,
                                 color = VerdeEsmeralda
                             )
+                            IconButton(
+                                onClick = { aoEditarItem(item) },
+                                modifier = Modifier.size(26.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Edit,
+                                    contentDescription = "Editar item",
+                                    tint = CorCompras,
+                                    modifier = Modifier.size(15.dp)
+                                )
+                            }
                             IconButton(
                                 onClick = { aoExcluirItem(item.id) },
                                 modifier = Modifier.size(24.dp)
@@ -791,6 +860,13 @@ fun DialogoRevisaoNotaIa(
     var novaQtd by remember { mutableStateOf("1") }
     var novoValorUnit by remember { mutableStateOf("") }
     var novaCategoria by remember { mutableStateOf("Alimentação") }
+
+    // Estado para edição inline de qualquer item lido pela IA
+    var indiceItemEditando by remember { mutableStateOf<Int?>(null) }
+    var edicaoNome by remember { mutableStateOf("") }
+    var edicaoQtd by remember { mutableStateOf("1") }
+    var edicaoValorUnit by remember { mutableStateOf("") }
+    var edicaoCategoria by remember { mutableStateOf("Alimentação") }
 
     Dialog(
         onDismissRequest = { if (!salvando) aoCancelar() },
@@ -971,56 +1047,182 @@ fun DialogoRevisaoNotaIa(
 
                     item {
                         Text(
-                            text = "Itens da Nota (${listaItens.size}):",
+                            text = "Itens da Nota (${listaItens.size}) • Toque no item ou no lápis ✏️ para editar:",
                             fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
+                            fontSize = 13.sp
                         )
                     }
 
                     items(listaItens.size) { idx ->
                         val item = listaItens[idx]
+                        val estaEditando = indiceItemEditando == idx
                         Card(
                             shape = RoundedCornerShape(10.dp),
                             colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.background
+                                containerColor = if (estaEditando)
+                                    CorCompras.copy(alpha = 0.08f)
+                                else
+                                    MaterialTheme.colorScheme.background
                             ),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Row(
+                            Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                                    .padding(horizontal = 12.dp, vertical = 8.dp)
                             ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = item.nomeProduto,
-                                        fontWeight = FontWeight.SemiBold,
-                                        fontSize = 13.sp
-                                    )
-                                    Text(
-                                        text = "${item.quantidade}x ${formatarMoeda(item.valorUnitario)} • ${item.categoriaSugerida ?: "Geral"}",
-                                        fontSize = 11.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                                Text(
-                                    text = formatarMoeda(item.quantidade * item.valorUnitario),
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp,
-                                    color = VerdeEsmeralda
-                                )
-                                IconButton(
-                                    onClick = { listaItens.removeAt(idx) },
-                                    modifier = Modifier.size(28.dp)
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            if (estaEditando) {
+                                                indiceItemEditando = null
+                                            } else {
+                                                indiceItemEditando = idx
+                                                edicaoNome = item.nomeProduto
+                                                edicaoQtd = item.quantidade.toString()
+                                                edicaoValorUnit = String.format(java.util.Locale.US, "%.2f", item.valorUnitario)
+                                                edicaoCategoria = item.categoriaSugerida ?: "Alimentação"
+                                            }
+                                        },
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Icon(
-                                        Icons.Default.DeleteOutline,
-                                        contentDescription = "Remover",
-                                        tint = MaterialTheme.colorScheme.error,
-                                        modifier = Modifier.size(18.dp)
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = item.nomeProduto,
+                                            fontWeight = FontWeight.SemiBold,
+                                            fontSize = 13.sp
+                                        )
+                                        Text(
+                                            text = "${item.quantidade}x ${formatarMoeda(item.valorUnitario)} • ${item.categoriaSugerida ?: "Geral"}",
+                                            fontSize = 11.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    Text(
+                                        text = formatarMoeda(item.quantidade * item.valorUnitario),
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp,
+                                        color = VerdeEsmeralda
                                     )
+                                    IconButton(
+                                        onClick = {
+                                            if (estaEditando) {
+                                                indiceItemEditando = null
+                                            } else {
+                                                indiceItemEditando = idx
+                                                edicaoNome = item.nomeProduto
+                                                edicaoQtd = item.quantidade.toString()
+                                                edicaoValorUnit = String.format(java.util.Locale.US, "%.2f", item.valorUnitario)
+                                                edicaoCategoria = item.categoriaSugerida ?: "Alimentação"
+                                            }
+                                        },
+                                        modifier = Modifier.size(28.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Edit,
+                                            contentDescription = "Editar item",
+                                            tint = CorCompras,
+                                            modifier = Modifier.size(17.dp)
+                                        )
+                                    }
+                                    IconButton(
+                                        onClick = {
+                                            if (indiceItemEditando == idx) indiceItemEditando = null
+                                            listaItens.removeAt(idx)
+                                            val soma = listaItens.sumOf { it.quantidade * it.valorUnitario }
+                                            if (soma > 0.0) {
+                                                valorTotalTexto = String.format(java.util.Locale.US, "%.2f", soma)
+                                            }
+                                        },
+                                        modifier = Modifier.size(28.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.DeleteOutline,
+                                            contentDescription = "Remover",
+                                            tint = MaterialTheme.colorScheme.error,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
+
+                                if (estaEditando) {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    OutlinedTextField(
+                                        value = edicaoNome,
+                                        onValueChange = { edicaoNome = it },
+                                        label = { Text("Nome do Produto") },
+                                        singleLine = true,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        OutlinedTextField(
+                                            value = edicaoQtd,
+                                            onValueChange = { edicaoQtd = it },
+                                            label = { Text("Qtd") },
+                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                            singleLine = true,
+                                            modifier = Modifier.weight(0.8f)
+                                        )
+                                        OutlinedTextField(
+                                            value = edicaoValorUnit,
+                                            onValueChange = { edicaoValorUnit = it },
+                                            label = { Text("Valor Unit. (R$)") },
+                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                            singleLine = true,
+                                            modifier = Modifier.weight(1.1f)
+                                        )
+                                        OutlinedTextField(
+                                            value = edicaoCategoria,
+                                            onValueChange = { edicaoCategoria = it },
+                                            label = { Text("Categoria") },
+                                            singleLine = true,
+                                            modifier = Modifier.weight(1.1f)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.End,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        TextButton(onClick = { indiceItemEditando = null }) {
+                                            Text("Cancelar")
+                                        }
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Button(
+                                            onClick = {
+                                                if (edicaoNome.isNotBlank()) {
+                                                    val q = edicaoQtd.replace(",", ".").toDoubleOrNull()?.takeIf { it > 0.0 } ?: 1.0
+                                                    val v = edicaoValorUnit.replace(",", ".").toDoubleOrNull() ?: 0.0
+                                                    listaItens[idx] = item.copy(
+                                                        nomeProduto = edicaoNome.trim(),
+                                                        quantidade = q,
+                                                        valorUnitario = v,
+                                                        categoriaSugerida = edicaoCategoria.trim().ifBlank { "Geral" }
+                                                    )
+                                                    val soma = listaItens.sumOf { it.quantidade * it.valorUnitario }
+                                                    if (soma > 0.0) {
+                                                        valorTotalTexto = String.format(java.util.Locale.US, "%.2f", soma)
+                                                    }
+                                                    indiceItemEditando = null
+                                                }
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = CorCompras)
+                                        ) {
+                                            Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("Aplicar Correção")
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -1132,6 +1334,144 @@ fun DialogoAdicionarItemAvulso(
                 colors = ButtonDefaults.buttonColors(containerColor = CorCompras)
             ) {
                 Text("Salvar Item")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = aoFechar) {
+                Text("Cancelar")
+            }
+        }
+    )
+}
+
+@Composable
+fun DialogoEditarItemRecibo(
+    nomeFornecedor: String,
+    itemInicial: ItemCompraExtraido,
+    aoFechar: () -> Unit,
+    aoSalvar: (nomeProduto: String, quantidade: Double, valorUnitario: Double, categoria: String) -> Unit
+) {
+    var nomeProduto by remember(itemInicial) { mutableStateOf(itemInicial.nomeProduto) }
+    var quantidadeTexto by remember(itemInicial) { mutableStateOf(itemInicial.quantidade.toString()) }
+    var valorUnitarioTexto by remember(itemInicial) {
+        mutableStateOf(String.format(java.util.Locale.US, "%.2f", itemInicial.valorUnitario))
+    }
+    var categoria by remember(itemInicial) { mutableStateOf(itemInicial.categoriaSugerida ?: "Alimentação") }
+
+    AlertDialog(
+        onDismissRequest = aoFechar,
+        title = { Text("✏️ Editar Item • $nomeFornecedor", fontWeight = FontWeight.Bold, fontSize = 16.sp) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(
+                    value = nomeProduto,
+                    onValueChange = { nomeProduto = it },
+                    label = { Text("Nome do Produto") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = quantidadeTexto,
+                        onValueChange = { quantidadeTexto = it },
+                        label = { Text("Quantidade") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = valorUnitarioTexto,
+                        onValueChange = { valorUnitarioTexto = it },
+                        label = { Text("Valor Unit. (R$)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                OutlinedTextField(
+                    value = categoria,
+                    onValueChange = { categoria = it },
+                    label = { Text("Categoria") },
+                    placeholder = { Text("Ex: Alimentação, Limpeza, Higiene") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (nomeProduto.isNotBlank()) {
+                        val qtd = quantidadeTexto.replace(",", ".").toDoubleOrNull()?.takeIf { it > 0.0 } ?: 1.0
+                        val valUnit = valorUnitarioTexto.replace(",", ".").toDoubleOrNull() ?: 0.0
+                        aoSalvar(nomeProduto.trim(), qtd, valUnit, categoria.trim())
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = CorCompras)
+            ) {
+                Text("Salvar Alterações")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = aoFechar) {
+                Text("Cancelar")
+            }
+        }
+    )
+}
+
+@Composable
+fun DialogoEditarCabecalhoRecibo(
+    reciboInicial: ReciboCompra,
+    aoFechar: () -> Unit,
+    aoSalvar: (fornecedor: String, dataCompra: String, valorTotal: Double) -> Unit
+) {
+    var fornecedor by remember(reciboInicial) { mutableStateOf(reciboInicial.fornecedor ?: "") }
+    var dataCompra by remember(reciboInicial) {
+        mutableStateOf(reciboInicial.dataCompra ?: java.time.LocalDate.now().toString())
+    }
+    var valorTotalTexto by remember(reciboInicial) {
+        mutableStateOf(String.format(java.util.Locale.US, "%.2f", reciboInicial.valorTotal))
+    }
+
+    AlertDialog(
+        onDismissRequest = aoFechar,
+        title = { Text("✏️ Editar Nota Fiscal", fontWeight = FontWeight.Bold, fontSize = 16.sp) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(
+                    value = fornecedor,
+                    onValueChange = { fornecedor = it },
+                    label = { Text("Supermercado / Estabelecimento") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = dataCompra,
+                    onValueChange = { dataCompra = it },
+                    label = { Text("Data da Compra (AAAA-MM-DD)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = valorTotalTexto,
+                    onValueChange = { valorTotalTexto = it },
+                    label = { Text("Valor Total (R$)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val total = valorTotalTexto.replace(",", ".").toDoubleOrNull() ?: reciboInicial.valorTotal
+                    aoSalvar(fornecedor.trim().ifBlank { "Supermercado" }, dataCompra.trim(), total)
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = CorCompras)
+            ) {
+                Text("Salvar Nota")
             }
         },
         dismissButton = {

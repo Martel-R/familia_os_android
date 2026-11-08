@@ -651,6 +651,49 @@ class RepositorioComprasMemoria : RepositorioCompras {
         }
     }
 
+    override suspend fun atualizarItemRecibo(
+        itemId: String,
+        reciboId: String,
+        nomeProduto: String,
+        quantidade: Double,
+        valorUnitario: Double,
+        categoriaSugerida: String
+    ) = withContext(Dispatchers.IO) {
+        estadoRecibos.update { lista ->
+            lista.map { r ->
+                if (r.id == reciboId) {
+                    val novosItens = r.itens.map { item ->
+                        if (item.id == itemId) {
+                            item.copy(
+                                nomeProduto = nomeProduto,
+                                quantidade = quantidade,
+                                valorUnitario = valorUnitario,
+                                categoriaSugerida = categoriaSugerida
+                            )
+                        } else item
+                    }
+                    val novoTotal = novosItens.sumOf { it.quantidade * it.valorUnitario }
+                    r.copy(itens = novosItens, valorTotal = if (novoTotal > 0.0) novoTotal else r.valorTotal)
+                } else r
+            }
+        }
+    }
+
+    override suspend fun atualizarCabecalhoRecibo(
+        reciboId: String,
+        fornecedor: String,
+        dataCompra: String,
+        valorTotal: Double
+    ) = withContext(Dispatchers.IO) {
+        estadoRecibos.update { lista ->
+            lista.map { r ->
+                if (r.id == reciboId) {
+                    r.copy(fornecedor = fornecedor, dataCompra = dataCompra, valorTotal = valorTotal)
+                } else r
+            }
+        }
+    }
+
     override suspend fun excluirRecibo(reciboId: String) = withContext(Dispatchers.IO) {
         estadoRecibos.update { lista -> lista.filterNot { it.id == reciboId } }
     }
