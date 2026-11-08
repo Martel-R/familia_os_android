@@ -36,25 +36,50 @@ jobs:
       - name: Build Release APK (Signed)
         run: ./gradlew assembleRelease --no-daemon --stacktrace -Dorg.gradle.java.home="$JAVA_HOME"
 
-      - name: Prepare APK File
+      - name: Prepare APK & Version Manifest
         run: |
           cp app/build/outputs/apk/release/app-release.apk familia-os.apk
           ls -lh familia-os.apk
+          export VERSION_CODE=$(grep -oP 'versionCode\s*=\s*\K\d+' app/build.gradle.kts | head -1)
+          export VERSION_NAME=$(grep -oP 'versionName\s*=\s*"\K[^"]+' app/build.gradle.kts | head -1)
+          export COMMIT_MSG=$(git log -1 --pretty=%s)
+          export PUBLISHED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          export APK_SIZE=$(stat -c%s familia-os.apk)
+          python3 -c '
+          import json, os
+          data = {
+              "versionCode": int(os.environ.get("VERSION_CODE") or 1),
+              "versionName": os.environ.get("VERSION_NAME") or "2.0",
+              "apkUrl": "https://github.com/Martel-R/familia_os_android/releases/download/latest-apk/familia-os.apk",
+              "fallbackApkUrl": "https://familia.martel.page/api/download/apk",
+              "apkSizeBytes": int(os.environ.get("APK_SIZE") or 0),
+              "commitSha": (os.environ.get("GITHUB_SHA") or "")[:7],
+              "publishedAt": os.environ.get("PUBLISHED_AT") or "",
+              "releaseNotes": os.environ.get("COMMIT_MSG") or "Nova versão disponível"
+          }
+          with open("version.json", "w") as f:
+              json.dump(data, f, ensure_ascii=False, indent=2)
+          '
+          cat version.json
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: familia-os-apk
-          path: familia-os.apk
+          path: |
+            familia-os.apk
+            version.json
 
-      - name: Publish APK to GitHub Release (latest-apk)
+      - name: Publish APK & Version Manifest to GitHub Release (latest-apk)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          VERSION_NAME=$(grep -oP 'versionName\s*=\s*"\K[^"]+' app/build.gradle.kts | head -1)
+          VERSION_CODE=$(grep -oP 'versionCode\s*=\s*\K\d+' app/build.gradle.kts | head -1)
           gh release delete latest-apk --yes --cleanup-tag || true
-          gh release create latest-apk familia-os.apk \
-            --title "Familia OS Android (Última Versão)" \
-            --notes "Build automático gerado a partir do commit ${GITHUB_SHA::7}." \
+          gh release create latest-apk familia-os.apk version.json \
+            --title "Familia OS Android v${VERSION_NAME} (Build #${VERSION_CODE})" \
+            --notes "Build automático v${VERSION_NAME} (versionCode=${VERSION_CODE}) gerado a partir do commit ${GITHUB_SHA::7}." \
             --latest
 
   smoke-test-emulator:

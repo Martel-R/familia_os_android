@@ -13,8 +13,8 @@ android {
         applicationId = "br.com.raevan.familialm"
         minSdk = 29
         targetSdk = 35
-        versionCode = 7
-        versionName = "2.5-camera-compras"
+        versionCode = 8
+        versionName = "2.6-auto-update"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

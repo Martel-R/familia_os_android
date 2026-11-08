@@ -50,6 +50,9 @@ import br.com.raevan.familialm.apresentacao.saude.SaudeViewModel
 import br.com.raevan.familialm.apresentacao.saude.TelaSaude
 import br.com.raevan.familialm.apresentacao.usuarios.TelaUsuarios
 import br.com.raevan.familialm.apresentacao.usuarios.UsuariosViewModel
+import br.com.raevan.familialm.nucleo.atualizacao.DialogoAtualizacaoApp
+import br.com.raevan.familialm.nucleo.atualizacao.GerenciadorAtualizacaoApp
+import br.com.raevan.familialm.nucleo.atualizacao.InfoVersaoRemota
 import br.com.raevan.familialm.nucleo.tema.AzulPrimario
 
 @Composable
@@ -59,6 +62,28 @@ fun EstruturaNavegacaoPrincipal() {
     val rotaAtual = entradaPilhaAtual?.destination?.route
 
     val contexto = androidx.compose.ui.platform.LocalContext.current
+    val (versaoInstaladaCodigo, versaoInstaladaNome) = remember {
+        GerenciadorAtualizacaoApp.obterVersaoInstalada(contexto)
+    }
+    var infoAtualizacaoPendente by remember { mutableStateOf<InfoVersaoRemota?>(null) }
+
+    LaunchedEffect(Unit) {
+        try {
+            val disponivel = GerenciadorAtualizacaoApp.verificarAtualizacaoDisponivel(contexto)
+            if (disponivel != null) {
+                infoAtualizacaoPendente = disponivel
+            }
+        } catch (_: Throwable) {}
+    }
+
+    if (infoAtualizacaoPendente != null) {
+        DialogoAtualizacaoApp(
+            infoRemota = infoAtualizacaoPendente!!,
+            versaoInstaladaNome = versaoInstaladaNome,
+            versaoInstaladaCodigo = versaoInstaladaCodigo,
+            aoFechar = { infoAtualizacaoPendente = null }
+        )
+    }
     val loginViewModel: LoginViewModel = viewModel()
     val sessaoExiste = remember {
         try {

@@ -7,13 +7,18 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import br.com.raevan.familialm.apresentacao.componentes.CartaoItemModulo
+import br.com.raevan.familialm.nucleo.atualizacao.DialogoAtualizacaoApp
+import br.com.raevan.familialm.nucleo.atualizacao.GerenciadorAtualizacaoApp
+import br.com.raevan.familialm.nucleo.atualizacao.InfoVersaoRemota
 import br.com.raevan.familialm.nucleo.tema.*
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -27,6 +32,24 @@ fun TelaMaisModulos(
     aoNavegarParaContatos: () -> Unit,
     aoFazerLogout: () -> Unit
 ) {
+    val contexto = LocalContext.current
+    val escopo = rememberCoroutineScope()
+    val (versaoCodigo, versaoNome) = remember {
+        GerenciadorAtualizacaoApp.obterVersaoInstalada(contexto)
+    }
+    var verificandoUpdate by remember { mutableStateOf(false) }
+    var statusUpdate by remember { mutableStateOf<String?>(null) }
+    var infoRemotaParaDialogo by remember { mutableStateOf<InfoVersaoRemota?>(null) }
+
+    if (infoRemotaParaDialogo != null) {
+        DialogoAtualizacaoApp(
+            infoRemota = infoRemotaParaDialogo!!,
+            versaoInstaladaNome = versaoNome,
+            versaoInstaladaCodigo = versaoCodigo,
+            aoFechar = { infoRemotaParaDialogo = null }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -123,6 +146,33 @@ fun TelaMaisModulos(
                     icone = Icons.Default.Call,
                     corDestaque = CorContatos,
                     aoClicar = aoNavegarParaContatos
+                )
+            }
+
+            item {
+                CartaoItemModulo(
+                    titulo = if (verificandoUpdate) "Verificando atualizações..." else "Atualizar Aplicativo (v$versaoNome)",
+                    subtitulo = statusUpdate ?: "Toque para buscar nova versão e atualizar o app automaticamente",
+                    icone = Icons.Default.SystemUpdate,
+                    corDestaque = VerdeSucesso,
+                    aoClicar = {
+                        if (!verificandoUpdate) {
+                            verificandoUpdate = true
+                            statusUpdate = "Consultando servidor de atualizações..."
+                            escopo.launch {
+                                val remota = GerenciadorAtualizacaoApp.consultarVersaoRemota()
+                                verificandoUpdate = false
+                                if (remota != null && remota.versionCode > versaoCodigo) {
+                                    statusUpdate = "Nova versão v${remota.versionName} disponível!"
+                                    infoRemotaParaDialogo = remota
+                                } else if (remota != null) {
+                                    statusUpdate = "Seu app já está na versão mais recente (v$versaoNome • Build #$versaoCodigo)."
+                                } else {
+                                    statusUpdate = "Não foi possível consultar o servidor agora."
+                                }
+                            }
+                        }
+                    }
                 )
             }
 
