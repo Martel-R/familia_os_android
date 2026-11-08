@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import androidx.core.content.pm.PackageInfoCompat
 import br.com.raevan.familialm.nucleo.tema.AzulPrimario
-import br.com.raevan.familialm.nucleo.tema.VerdeSucesso
+import br.com.raevan.familialm.nucleo.tema.VerdeEsmeralda
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -266,7 +266,7 @@ fun DialogoAtualizacaoApp(
             Icon(
                 imageVector = if (arquivoBaixado != null) Icons.Default.CheckCircle else Icons.Default.SystemUpdate,
                 contentDescription = null,
-                tint = if (arquivoBaixado != null) VerdeSucesso else AzulPrimario,
+                tint = if (arquivoBaixado != null) VerdeEsmeralda else AzulPrimario,
                 modifier = Modifier.size(36.dp)
             )
         },

@@ -154,7 +154,7 @@ fun TelaMaisModulos(
                     titulo = if (verificandoUpdate) "Verificando atualizações..." else "Atualizar Aplicativo (v$versaoNome)",
                     subtitulo = statusUpdate ?: "Toque para buscar nova versão e atualizar o app automaticamente",
                     icone = Icons.Default.SystemUpdate,
-                    corDestaque = VerdeSucesso,
+                    corDestaque = VerdeEsmeralda,
                     aoClicar = {
                         if (!verificandoUpdate) {
                             verificandoUpdate = true
