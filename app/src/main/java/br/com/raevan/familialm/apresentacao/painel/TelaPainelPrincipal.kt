@@ -231,6 +231,115 @@ fun TelaPainelPrincipal(
                 }
             }
 
+            // Check-in de Humor na Tela Inicial
+            item {
+                val ultimoHumor = estado.ultimoCheckinHumor
+                val opcoesHumor = listOf(
+                    Triple(1, "😢", "Mal"),
+                    Triple(2, "😕", "Baixo"),
+                    Triple(3, "😐", "Neutro"),
+                    Triple(4, "🙂", "Bem"),
+                    Triple(5, "😄", "Ótimo")
+                )
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, CorSaude.copy(alpha = 0.25f))
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
+                                        .background(CorSaude.copy(alpha = 0.14f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Favorite,
+                                        contentDescription = null,
+                                        tint = CorSaude,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Text(
+                                        text = "Como você está hoje?",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 15.sp
+                                    )
+                                    Text(
+                                        text = if (ultimoHumor != null) {
+                                            val emojiAtual = opcoesHumor.firstOrNull { it.first == ultimoHumor.nivelHumor }?.second ?: "🙂"
+                                            val textoAtual = opcoesHumor.firstOrNull { it.first == ultimoHumor.nivelHumor }?.third ?: "Bem"
+                                            "Último registro: $emojiAtual $textoAtual"
+                                        } else {
+                                            "Toque em um emoji para registrar seu humor"
+                                        },
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                            TextButton(onClick = aoNavegarParaSaude) {
+                                Text("Saúde →", fontSize = 12.sp, color = CorSaude, fontWeight = FontWeight.Bold)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            opcoesHumor.forEach { (nivel, emoji, rotulo) ->
+                                val selecionado = ultimoHumor?.nivelHumor == nivel
+                                Surface(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(14.dp))
+                                        .clickable {
+                                            viewModel.registrarCheckinHumorRapido(nivel)
+                                            br.com.raevan.familialm.nucleo.widgets.WidgetCheckinHumorProvider
+                                                .sincronizarHumorLocal(contexto, nivel)
+                                        },
+                                    shape = RoundedCornerShape(14.dp),
+                                    color = if (selecionado) CorSaude.copy(alpha = 0.16f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+                                    border = if (selecionado) {
+                                        androidx.compose.foundation.BorderStroke(1.5.dp, CorSaude)
+                                    } else {
+                                        null
+                                    }
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text(text = emoji, fontSize = 22.sp)
+                                        Spacer(modifier = Modifier.height(3.dp))
+                                        Text(
+                                            text = rotulo,
+                                            fontSize = 10.sp,
+                                            fontWeight = if (selecionado) FontWeight.Bold else FontWeight.Medium,
+                                            color = if (selecionado) CorSaude else MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             // Próximo Evento Familiar
             if (estado.proximoEvento != null) {
                 item {

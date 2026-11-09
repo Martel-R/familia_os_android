@@ -1,12 +1,20 @@
 package br.com.raevan.familialm.apresentacao.cofre
 
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.fragment.app.FragmentActivity
+import br.com.raevan.familialm.dominio.modelos.RedeWifiFamiliar
 import br.com.raevan.familialm.nucleo.seguranca.GerenciadorBiometria
+import br.com.raevan.familialm.nucleo.wifi.UtilitarioWifiAndroid
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -34,6 +42,20 @@ fun TelaCofreSenhas(
     val estado by viewModel.estado.collectAsState()
     var pinDigitado by remember { mutableStateOf("") }
     var exibirDialogoNovaCredencial by remember { mutableStateOf(false) }
+    var exibirDialogoRedeWifi by remember { mutableStateOf(false) }
+    var redeWifiEditando by remember { mutableStateOf<RedeWifiFamiliar?>(null) }
+    var redeWifiQrCode by remember { mutableStateOf<RedeWifiFamiliar?>(null) }
+
+    val lancadorImportarPrintsWifi = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetMultipleContents()
+    ) { uris ->
+        if (uris.isNotEmpty()) {
+            val extraidas = uris.mapNotNull { uri ->
+                UtilitarioWifiAndroid.decodificarWifiDeUri(contexto, uri)
+            }
+            viewModel.importarRedesWifiEmLote(extraidas)
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -46,7 +68,7 @@ fun TelaCofreSenhas(
                             fontSize = 20.sp
                         )
                         Text(
-                            text = "Criptografia E2E isolada do módulo financeiro",
+                            text = "Senhas e Redes Wi-Fi compartilhadas da família",
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -64,11 +86,21 @@ fun TelaCofreSenhas(
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { exibirDialogoNovaCredencial = true },
+                onClick = {
+                    if (estado.abaSelecionada == 2) {
+                        redeWifiEditando = null
+                        exibirDialogoRedeWifi = true
+                    } else {
+                        exibirDialogoNovaCredencial = true
+                    }
+                },
                 containerColor = CorCofre,
                 contentColor = Color.White
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Nova Senha / Credencial")
+                Icon(
+                    imageVector = if (estado.abaSelecionada == 2) Icons.Default.Wifi else Icons.Default.Add,
+                    contentDescription = "Adicionar"
+                )
             }
         }
     ) { preenchimento ->
@@ -275,100 +307,104 @@ fun TelaCofreSenhas(
                     }
                 }
 
-                2 -> { // Rede Wi-Fi Familiar (Multi-Tenant)
-                    val wifi = estado.redeWifi
-                    if (wifi != null) {
-                        item {
-                            var editandoWifi by remember { mutableStateOf(false) }
-                            var ssidEdit by remember(wifi.nomeRedeSsid) { mutableStateOf(wifi.nomeRedeSsid) }
-                            var senhaEdit by remember(wifi.senhaRede) { mutableStateOf(wifi.senhaRede) }
-                            var segurancaEdit by remember(wifi.tipoSeguranca) { mutableStateOf(wifi.tipoSeguranca) }
-
-                            Card(
-                                shape = RoundedCornerShape(16.dp),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                                modifier = Modifier.fillMaxWidth()
+                2 -> { // Redes Wi-Fi Compartilhadas da Família (Multi-Tenant)
+                    item {
+                        Card(
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = VerdeEsmeralda.copy(alpha = 0.08f)),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, VerdeEsmeralda.copy(alpha = 0.25f)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
-                                Column(modifier = Modifier.padding(20.dp)) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.Wifi,
+                                        contentDescription = null,
+                                        tint = VerdeEsmeralda,
+                                        modifier = Modifier.size(26.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "Redes Wi-Fi Compartilhadas (${estado.redesWifi.size})",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 15.sp
+                                        )
+                                        Text(
+                                            text = "Para importar todas as redes salvas do seu telefone: abra Configurações → Wi-Fi → Compartilhar (QR Code), tire print de cada uma e importe todas de uma vez abaixo!",
+                                            fontSize = 11.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Button(
+                                        onClick = { lancadorImportarPrintsWifi.launch("image/*") },
+                                        colors = ButtonDefaults.buttonColors(containerColor = VerdeEsmeralda),
+                                        modifier = Modifier.weight(1f)
                                     ) {
-                                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                                            Icon(Icons.Default.Wifi, contentDescription = null, tint = VerdeEsmeralda, modifier = Modifier.size(28.dp))
-                                            Spacer(modifier = Modifier.width(10.dp))
-                                            Column {
-                                                Text(text = "Rede Wi-Fi da Família", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                                                Text(text = "Configuração isolada por família no Supabase", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                            }
-                                        }
-                                        IconButton(onClick = { editandoWifi = !editandoWifi }) {
-                                            Icon(
-                                                imageVector = if (editandoWifi) Icons.Default.Close else Icons.Default.Edit,
-                                                contentDescription = "Editar Wi-Fi",
-                                                tint = AzulPrimario
-                                            )
-                                        }
+                                        Icon(Icons.Default.QrCodeScanner, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Importar Prints QR", fontSize = 12.sp)
                                     }
 
-                                    Spacer(modifier = Modifier.height(16.dp))
+                                    OutlinedButton(
+                                        onClick = {
+                                            redeWifiEditando = null
+                                            exibirDialogoRedeWifi = true
+                                        },
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Nova Rede", fontSize = 12.sp)
+                                    }
+                                }
 
-                                    if (!editandoWifi) {
-                                        Surface(
-                                            color = MaterialTheme.colorScheme.surfaceVariant,
-                                            shape = RoundedCornerShape(12.dp),
-                                            modifier = Modifier.fillMaxWidth()
-                                        ) {
-                                            Column(modifier = Modifier.padding(14.dp)) {
-                                                Text(text = "SSID (Nome da Rede):", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                                Text(text = wifi.nomeRedeSsid, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                                                Spacer(modifier = Modifier.height(10.dp))
-                                                Text(text = "Senha:", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                                Text(text = wifi.senhaRede, fontWeight = FontWeight.Bold, fontSize = 17.sp, color = VerdeEsmeralda)
-                                                Spacer(modifier = Modifier.height(4.dp))
-                                                Text(text = "Segurança: ${wifi.tipoSeguranca}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                            }
-                                        }
-                                    } else {
-                                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                            OutlinedTextField(
-                                                value = ssidEdit,
-                                                onValueChange = { ssidEdit = it },
-                                                label = { Text("Nome da Rede (SSID)") },
-                                                singleLine = true,
-                                                modifier = Modifier.fillMaxWidth()
-                                            )
-                                            OutlinedTextField(
-                                                value = senhaEdit,
-                                                onValueChange = { senhaEdit = it },
-                                                label = { Text("Senha do Wi-Fi") },
-                                                singleLine = true,
-                                                modifier = Modifier.fillMaxWidth()
-                                            )
-                                            OutlinedTextField(
-                                                value = segurancaEdit,
-                                                onValueChange = { segurancaEdit = it },
-                                                label = { Text("Tipo de Segurança (ex: WPA2/WPA3)") },
-                                                singleLine = true,
-                                                modifier = Modifier.fillMaxWidth()
-                                            )
-                                            Button(
-                                                onClick = {
-                                                    viewModel.salvarRedeWifi(ssidEdit, senhaEdit, segurancaEdit)
-                                                    editandoWifi = false
-                                                },
-                                                colors = ButtonDefaults.buttonColors(containerColor = VerdeEsmeralda),
-                                                modifier = Modifier.fillMaxWidth()
-                                            ) {
-                                                Text("Salvar Wi-Fi da Família")
-                                            }
-                                        }
+                                if (estado.redesWifi.isNotEmpty()) {
+                                    OutlinedButton(
+                                        onClick = {
+                                            val msg = UtilitarioWifiAndroid.salvarRedesNoSistemaAndroid(contexto, estado.redesWifi)
+                                            viewModel.exibirAlerta(msg)
+                                        },
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Icon(Icons.Default.PhonelinkSetup, contentDescription = null, modifier = Modifier.size(18.dp))
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("Salvar Todas as Redes neste Celular (1 Toque)", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                     }
                                 }
                             }
                         }
+                    }
+
+                    items(estado.redesWifi.size) { indice ->
+                        val rede = estado.redesWifi[indice]
+                        ItemCardRedeWifiFamiliar(
+                            rede = rede,
+                            ehPrincipal = indice == 0,
+                            aoSalvarNoCelular = {
+                                val msg = UtilitarioWifiAndroid.salvarRedesNoSistemaAndroid(contexto, listOf(rede))
+                                viewModel.exibirAlerta(msg)
+                            },
+                            aoCopiarSenha = {
+                                UtilitarioWifiAndroid.copiarSenhaWifi(contexto, rede)
+                                viewModel.exibirAlerta("Senha da rede '${rede.nomeRedeSsid}' copiada!")
+                            },
+                            aoExibirQrCode = { redeWifiQrCode = rede },
+                            aoEditar = {
+                                redeWifiEditando = rede
+                                exibirDialogoRedeWifi = true
+                            },
+                            aoExcluir = { viewModel.excluirRedeWifi(rede.id) }
+                        )
                     }
                 }
             }
@@ -384,6 +420,28 @@ fun TelaCofreSenhas(
                 viewModel.adicionarCredencial(titulo, nivel, login, senha, url, notas)
                 exibirDialogoNovaCredencial = false
             }
+        )
+    }
+
+    if (exibirDialogoRedeWifi) {
+        DialogoRedeWifiFamiliar(
+            redeInicial = redeWifiEditando,
+            aoFechar = {
+                exibirDialogoRedeWifi = false
+                redeWifiEditando = null
+            },
+            aoSalvar = { id, apelido, ssid, senha, seguranca, visitantes ->
+                viewModel.salvarOuEditarRedeWifi(id, apelido, ssid, senha, seguranca, visitantes)
+                exibirDialogoRedeWifi = false
+                redeWifiEditando = null
+            }
+        )
+    }
+
+    if (redeWifiQrCode != null) {
+        DialogoQrCodeWifi(
+            rede = redeWifiQrCode!!,
+            aoFechar = { redeWifiQrCode = null }
         )
     }
 }
@@ -621,6 +679,364 @@ fun DialogoNovaCredencial(
         dismissButton = {
             TextButton(onClick = { aoFechar() }) {
                 Text("Cancelar")
+            }
+        }
+    )
+}
+
+@Composable
+fun ItemCardRedeWifiFamiliar(
+    rede: RedeWifiFamiliar,
+    ehPrincipal: Boolean,
+    aoSalvarNoCelular: () -> Unit,
+    aoCopiarSenha: () -> Unit,
+    aoExibirQrCode: () -> Unit,
+    aoEditar: () -> Unit,
+    aoExcluir: () -> Unit
+) {
+    var mostrarSenha by remember { mutableStateOf(true) }
+
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(VerdeEsmeralda.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Wifi,
+                            contentDescription = null,
+                            tint = VerdeEsmeralda,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = rede.apelido.ifBlank { rede.nomeRedeSsid },
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp
+                            )
+                            if (ehPrincipal) {
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = VerdeEsmeralda.copy(alpha = 0.15f)
+                                ) {
+                                    Text(
+                                        text = "Principal",
+                                        color = VerdeEsmeralda,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                        }
+                        Text(
+                            text = "SSID: ${rede.nomeRedeSsid} • ${rede.tipoSeguranca}",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                Row {
+                    IconButton(onClick = aoExibirQrCode) {
+                        Icon(Icons.Default.QrCode2, contentDescription = "Mostrar QR Code", tint = AzulPrimario)
+                    }
+                    IconButton(onClick = aoEditar) {
+                        Icon(Icons.Default.Edit, contentDescription = "Editar", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    IconButton(onClick = aoExcluir) {
+                        Icon(Icons.Default.DeleteOutline, contentDescription = "Excluir", tint = MaterialTheme.colorScheme.error)
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Senha do Wi-Fi:",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = if (mostrarSenha) rede.senhaRede.ifBlank { "(Sem senha / Aberta)" } else "••••••••••••",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            color = VerdeEsmeralda
+                        )
+                    }
+                    IconButton(onClick = { mostrarSenha = !mostrarSenha }) {
+                        Icon(
+                            imageVector = if (mostrarSenha) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                            contentDescription = "Mostrar/Ocultar Senha"
+                        )
+                    }
+                    IconButton(onClick = aoCopiarSenha) {
+                        Icon(
+                            imageVector = Icons.Default.ContentCopy,
+                            contentDescription = "Copiar Senha",
+                            tint = AzulPrimario
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(
+                    onClick = aoSalvarNoCelular,
+                    colors = ButtonDefaults.buttonColors(containerColor = VerdeEsmeralda),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Default.WifiFind, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Salvar no Celular", fontSize = 12.sp)
+                }
+
+                OutlinedButton(
+                    onClick = aoExibirQrCode,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Default.QrCode, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("QR Code", fontSize = 12.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DialogoRedeWifiFamiliar(
+    redeInicial: RedeWifiFamiliar?,
+    aoFechar: () -> Unit,
+    aoSalvar: (id: String?, apelido: String, ssid: String, senha: String, seguranca: String, ehVisitantes: Boolean) -> Unit
+) {
+    val contexto = LocalContext.current
+    var apelido by remember { mutableStateOf(redeInicial?.apelido ?: "") }
+    var ssid by remember { mutableStateOf(redeInicial?.nomeRedeSsid ?: "") }
+    var senha by remember { mutableStateOf(redeInicial?.senhaRede ?: "") }
+    var seguranca by remember { mutableStateOf(redeInicial?.tipoSeguranca ?: "WPA2/WPA3") }
+    var ehVisitantes by remember { mutableStateOf(redeInicial?.ehRedeVisitantes ?: false) }
+    var redesProximas by remember { mutableStateOf<List<String>>(emptyList()) }
+
+    val lancadorPermissaoLocalizacao = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { concedida ->
+        if (concedida) {
+            val conectado = UtilitarioWifiAndroid.obterSsidConectadoAtual(contexto)
+            if (!conectado.isNullOrBlank()) {
+                ssid = conectado
+                if (apelido.isBlank()) apelido = conectado
+            }
+            redesProximas = UtilitarioWifiAndroid.listarSsidsProximos(contexto)
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = aoFechar,
+        title = {
+            Text(
+                text = if (redeInicial == null) "Nova Rede Wi-Fi da Família" else "Editar Rede Wi-Fi",
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedButton(
+                    onClick = {
+                        val conectado = UtilitarioWifiAndroid.obterSsidConectadoAtual(contexto)
+                        if (!conectado.isNullOrBlank()) {
+                            ssid = conectado
+                            if (apelido.isBlank()) apelido = conectado
+                            redesProximas = UtilitarioWifiAndroid.listarSsidsProximos(contexto)
+                        } else {
+                            lancadorPermissaoLocalizacao.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.WifiTethering, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Detectar Wi-Fi Conectado / Próximos", fontSize = 12.sp)
+                }
+
+                if (redesProximas.isNotEmpty()) {
+                    Text("Redes detectadas por perto (toque para preencher):", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        items(redesProximas.size) { idx ->
+                            val nomeSsid = redesProximas[idx]
+                            FilterChip(
+                                selected = ssid == nomeSsid,
+                                onClick = {
+                                    ssid = nomeSsid
+                                    if (apelido.isBlank()) apelido = nomeSsid
+                                },
+                                label = { Text(nomeSsid, fontSize = 11.sp) }
+                            )
+                        }
+                    }
+                }
+
+                OutlinedTextField(
+                    value = apelido,
+                    onValueChange = { apelido = it },
+                    label = { Text("Nome / Local (ex: Casa 5G, Casa da Vó)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = ssid,
+                    onValueChange = { ssid = it },
+                    label = { Text("Nome Exato da Rede (SSID)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = senha,
+                    onValueChange = { senha = it },
+                    label = { Text("Senha do Wi-Fi") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = seguranca,
+                    onValueChange = { seguranca = it },
+                    label = { Text("Segurança (WPA2/WPA3, WEP, Aberta)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Rede de Visitantes", fontSize = 13.sp)
+                    Switch(checked = ehVisitantes, onCheckedChange = { ehVisitantes = it })
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (ssid.isNotBlank()) {
+                        aoSalvar(
+                            redeInicial?.id,
+                            apelido.ifBlank { ssid },
+                            ssid,
+                            senha,
+                            seguranca,
+                            ehVisitantes
+                        )
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = VerdeEsmeralda)
+            ) {
+                Text("Salvar e Compartilhar")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = aoFechar) {
+                Text("Cancelar")
+            }
+        }
+    )
+}
+
+@Composable
+fun DialogoQrCodeWifi(
+    rede: RedeWifiFamiliar,
+    aoFechar: () -> Unit
+) {
+    val qrBitmap = remember(rede) {
+        UtilitarioWifiAndroid.gerarBitmapQrCodeWifi(rede, 560)
+    }
+
+    AlertDialog(
+        onDismissRequest = aoFechar,
+        title = {
+            Text(
+                text = "QR Code Wi-Fi • ${rede.apelido.ifBlank { rede.nomeRedeSsid }}",
+                fontWeight = FontWeight.Bold,
+                fontSize = 17.sp
+            )
+        },
+        text = {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "Aponte a câmera de qualquer celular para conectar automaticamente:",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (qrBitmap != null) {
+                    Surface(
+                        color = Color.White,
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.padding(4.dp)
+                    ) {
+                        Image(
+                            bitmap = qrBitmap.asImageBitmap(),
+                            contentDescription = "QR Code Wi-Fi ${rede.nomeRedeSsid}",
+                            modifier = Modifier
+                                .size(220.dp)
+                                .padding(12.dp)
+                        )
+                    }
+                }
+                Text(
+                    text = "Rede: ${rede.nomeRedeSsid}",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp
+                )
+                Text(
+                    text = "Senha: ${rede.senhaRede}",
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 14.sp,
+                    color = VerdeEsmeralda
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = aoFechar) {
+                Text("Fechar")
             }
         }
     )

@@ -11,6 +11,7 @@ import android.widget.Toast
 import br.com.raevan.familialm.MainActivity
 import br.com.raevan.familialm.R
 import br.com.raevan.familialm.dados.rede.ClienteSupabase
+import br.com.raevan.familialm.dados.rede.GerenciadorSessao
 import br.com.raevan.familialm.dados.remoto.dto.CheckinSaudeDto
 import br.com.raevan.familialm.dados.remoto.dto.UsuarioDto
 import io.github.jan.supabase.auth.auth
@@ -40,6 +41,23 @@ class WidgetCheckinHumorProvider : AppWidgetProvider() {
             4 to ("🙂" to "Bem"),
             5 to ("😄" to "Excelente")
         )
+
+        fun sincronizarHumorLocal(context: Context, nivel: Int) {
+            val horaAtual = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            prefs.edit()
+                .putInt(KEY_ULTIMO_NIVEL, nivel)
+                .putString(KEY_ULTIMO_HORARIO, horaAtual)
+                .apply()
+
+            val appWidgetManager = AppWidgetManager.getInstance(context)
+            val componentName = ComponentName(context, WidgetCheckinHumorProvider::class.java)
+            val ids = appWidgetManager.getAppWidgetIds(componentName)
+            val provider = WidgetCheckinHumorProvider()
+            for (id in ids) {
+                provider.atualizarVisualWidget(context, appWidgetManager, id)
+            }
+        }
     }
 
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
@@ -89,8 +107,10 @@ class WidgetCheckinHumorProvider : AppWidgetProvider() {
                 }
 
                 if (!userId.isNullOrBlank()) {
+                    val familiaId = GerenciadorSessao.obterFamiliaId().ifBlank { GerenciadorSessao.DEFAULT_FAMILIA_ID }
                     val dto = CheckinSaudeDto(
                         id = UUID.randomUUID().toString(),
+                        familiaId = familiaId,
                         usuarioId = userId,
                         nivelHumor = nivel,
                         notasDiario = "Registrado via Widget da Tela Inicial"
@@ -157,12 +177,28 @@ class WidgetCheckinHumorProvider : AppWidgetProvider() {
         val ultimoNivel = prefs.getInt(KEY_ULTIMO_NIVEL, 0)
         val ultimoHorario = prefs.getString(KEY_ULTIMO_HORARIO, null)
 
+        val botoes = listOf(
+            1 to R.id.btn_humor_1,
+            2 to R.id.btn_humor_2,
+            3 to R.id.btn_humor_3,
+            4 to R.id.btn_humor_4,
+            5 to R.id.btn_humor_5
+        )
+        for ((nivelBtn, viewId) in botoes) {
+            val bgRes = if (ultimoNivel == nivelBtn) {
+                R.drawable.bg_emoji_botao_selecionado
+            } else {
+                R.drawable.bg_emoji_botao
+            }
+            views.setInt(viewId, "setBackgroundResource", bgRes)
+        }
+
         if (ultimoNivel in 1..5 && !ultimoHorario.isNullOrBlank()) {
             val info = EMOJIS[ultimoNivel]
             views.setTextViewText(R.id.tv_widget_humor_status, "Hoje: ${info?.first} ${info?.second}")
             views.setTextViewText(R.id.tv_widget_ultima_hora, "às $ultimoHorario")
         } else {
-            views.setTextViewText(R.id.tv_widget_humor_status, "Como você está hoje?")
+            views.setTextViewText(R.id.tv_widget_humor_status, "Como você está se sentindo hoje?")
             views.setTextViewText(R.id.tv_widget_ultima_hora, "")
         }
 

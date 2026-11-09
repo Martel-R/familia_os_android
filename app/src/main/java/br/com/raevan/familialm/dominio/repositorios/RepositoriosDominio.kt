@@ -56,9 +56,11 @@ interface RepositorioEventos {
 interface RepositorioCofre {
     fun listarCredenciais(incluirMaster: Boolean): Flow<List<CredencialCofre>>
     fun obterRedeWifiFamiliar(): Flow<RedeWifiFamiliar>
+    fun listarRedesWifiFamilia(): Flow<List<RedeWifiFamiliar>> = kotlinx.coroutines.flow.flowOf(emptyList())
     suspend fun adicionarCredencial(credencial: CredencialCofre)
     suspend fun excluirCredencial(credencialId: String) {}
     suspend fun salvarRedeWifiFamiliar(wifi: RedeWifiFamiliar) {}
+    suspend fun salvarListaRedesWifiFamilia(redes: List<RedeWifiFamiliar>) {}
 }
 
 interface RepositorioRotinas {

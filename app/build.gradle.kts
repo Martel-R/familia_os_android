@@ -13,8 +13,8 @@ android {
         applicationId = "br.com.raevan.familialm"
         minSdk = 29
         targetSdk = 35
-        versionCode = 11
-        versionName = "2.9-reset-rotinas"
+        versionCode = 12
+        versionName = "3.0-wifi-familia"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -86,6 +86,9 @@ dependencies {
     implementation(libs.supabase.storage)
     implementation(libs.ktor.client.android)
     implementation(libs.ktor.client.core)
+
+    // Leitura e Geração de QR Code Wi-Fi (ZXing Core)
+    implementation("com.google.zxing:core:3.5.3")
 
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))

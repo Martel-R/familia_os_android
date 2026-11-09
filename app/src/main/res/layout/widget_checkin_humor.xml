@@ -5,7 +5,7 @@
     android:layout_height="match_parent"
     android:background="@drawable/bg_widget_humor"
     android:orientation="vertical"
-    android:padding="12dp">
+    android:padding="14dp">
 
     <!-- Cabeçalho do Widget -->
     <LinearLayout
@@ -19,8 +19,8 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="FamiliaLM • Saúde"
-            android:textColor="#2563EB"
+            android:text="❤️ FamiliaLM • Check-in de Humor"
+            android:textColor="#FF38BDF8"
             android:textSize="11sp"
             android:textStyle="bold" />
 
@@ -29,7 +29,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text=""
-            android:textColor="#64748B"
+            android:textColor="#FF94A3B8"
             android:textSize="10sp" />
     </LinearLayout>
 
@@ -38,11 +38,11 @@
         android:id="@+id/tv_widget_humor_status"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="2dp"
-        android:layout_marginBottom="8dp"
-        android:text="Como você está hoje?"
-        android:textColor="#0F172A"
-        android:textSize="13sp"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="10dp"
+        android:text="Como você está se sentindo hoje?"
+        android:textColor="#FFFFFFFF"
+        android:textSize="14sp"
         android:textStyle="bold" />
 
     <!-- Barra de Emojis de Humor -->
@@ -56,60 +56,65 @@
         <TextView
             android:id="@+id/btn_humor_1"
             android:layout_width="0dp"
-            android:layout_height="46dp"
+            android:layout_height="48dp"
             android:layout_margin="3dp"
             android:layout_weight="1"
             android:background="@drawable/bg_emoji_botao"
             android:gravity="center"
             android:text="😢"
+            android:textColor="#FFFFFFFF"
             android:textSize="22sp" />
 
         <!-- Nível 2: Para Baixo (😕) -->
         <TextView
             android:id="@+id/btn_humor_2"
             android:layout_width="0dp"
-            android:layout_height="46dp"
+            android:layout_height="48dp"
             android:layout_margin="3dp"
             android:layout_weight="1"
             android:background="@drawable/bg_emoji_botao"
             android:gravity="center"
             android:text="😕"
+            android:textColor="#FFFFFFFF"
             android:textSize="22sp" />
 
         <!-- Nível 3: Neutro (😐) -->
         <TextView
             android:id="@+id/btn_humor_3"
             android:layout_width="0dp"
-            android:layout_height="46dp"
+            android:layout_height="48dp"
             android:layout_margin="3dp"
             android:layout_weight="1"
             android:background="@drawable/bg_emoji_botao"
             android:gravity="center"
             android:text="😐"
+            android:textColor="#FFFFFFFF"
             android:textSize="22sp" />
 
         <!-- Nível 4: Bem (🙂) -->
         <TextView
             android:id="@+id/btn_humor_4"
             android:layout_width="0dp"
-            android:layout_height="46dp"
+            android:layout_height="48dp"
             android:layout_margin="3dp"
             android:layout_weight="1"
             android:background="@drawable/bg_emoji_botao"
             android:gravity="center"
             android:text="🙂"
+            android:textColor="#FFFFFFFF"
             android:textSize="22sp" />
 
         <!-- Nível 5: Excelente (😄) -->
         <TextView
             android:id="@+id/btn_humor_5"
             android:layout_width="0dp"
-            android:layout_height="46dp"
+            android:layout_height="48dp"
             android:layout_margin="3dp"
             android:layout_weight="1"
             android:background="@drawable/bg_emoji_botao"
             android:gravity="center"
             android:text="😄"
+            android:textColor="#FFFFFFFF"
             android:textSize="22sp" />
     </LinearLayout>
 
@@ -118,10 +123,10 @@
         android:id="@+id/tv_widget_abrir_app"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
+        android:layout_marginTop="8dp"
         android:gravity="center"
-        android:text="Ver histórico completo no app →"
-        android:textColor="#64748B"
+        android:text="Toque em um emoji ou veja o histórico no app →"
+        android:textColor="#FFCBD5E1"
         android:textSize="10sp" />
 
 </LinearLayout>

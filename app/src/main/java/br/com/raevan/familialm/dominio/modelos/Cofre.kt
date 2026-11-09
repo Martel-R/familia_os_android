@@ -17,8 +17,10 @@ data class CredencialCofre(
 )
 
 data class RedeWifiFamiliar(
+    val id: String = "principal",
+    val apelido: String = "Wi-Fi da Família",
     val nomeRedeSsid: String,
     val senhaRede: String,
     val tipoSeguranca: String = "WPA2/WPA3",
-    val ehRedeVisitantes: Boolean = true
+    val ehRedeVisitantes: Boolean = false
 )

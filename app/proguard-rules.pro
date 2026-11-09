@@ -31,3 +31,4 @@
 -keep class androidx.fragment.app.** { *; }
 -keep class androidx.lifecycle.** { *; }
 -keep class androidx.startup.** { *; }
+-keep class com.google.zxing.** { *; }

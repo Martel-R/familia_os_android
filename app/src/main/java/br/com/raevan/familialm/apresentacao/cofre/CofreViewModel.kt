@@ -14,8 +14,9 @@ data class EstadoCofre(
     val carregando: Boolean = false,
     val credenciais: List<CredencialCofre> = emptyList(),
     val redeWifi: RedeWifiFamiliar? = null,
+    val redesWifi: List<RedeWifiFamiliar> = emptyList(),
     val cofreMasterDesbloqueado: Boolean = false,
-    val abaSelecionada: Int = 0, // 0: Compartilhado, 1: Master (Restrito aos Pais), 2: Rede Wi-Fi
+    val abaSelecionada: Int = 0, // 0: Compartilhado, 1: Master (Restrito aos Pais), 2: Redes Wi-Fi
     val mensagemAlerta: String? = null
 )
 
@@ -29,16 +30,17 @@ class CofreViewModel : ViewModel() {
         observarDados()
     }
 
-    private fun observarDados() {
+    fun observarDados() {
         viewModelScope.launch {
             combine(
                 repositorioCofre.listarCredenciais(incluirMaster = true),
-                repositorioCofre.obterRedeWifiFamiliar()
-            ) { creds, wifi ->
+                repositorioCofre.listarRedesWifiFamilia()
+            ) { creds, listaWifi ->
                 _estado.value.copy(
                     carregando = false,
                     credenciais = creds,
-                    redeWifi = wifi
+                    redesWifi = listaWifi,
+                    redeWifi = listaWifi.firstOrNull()
                 )
             }.collect { novoEstado ->
                 _estado.value = novoEstado
@@ -94,26 +96,98 @@ class CofreViewModel : ViewModel() {
         }
     }
 
-    fun salvarRedeWifi(ssid: String, senha: String, seguranca: String) {
-        if (ssid.isBlank() || senha.isBlank()) {
-            _estado.update { it.copy(mensagemAlerta = "Informe o SSID e a senha do Wi-Fi.") }
+    fun salvarOuEditarRedeWifi(
+        id: String?,
+        apelido: String,
+        ssid: String,
+        senha: String,
+        seguranca: String,
+        ehVisitantes: Boolean = false
+    ) {
+        if (ssid.isBlank()) {
+            _estado.update { it.copy(mensagemAlerta = "Informe o nome da rede (SSID) do Wi-Fi.") }
             return
         }
         viewModelScope.launch {
             val novaRede = RedeWifiFamiliar(
+                id = id?.takeIf { it.isNotBlank() } ?: UUID.randomUUID().toString(),
+                apelido = apelido.trim().ifBlank { ssid.trim() },
                 nomeRedeSsid = ssid.trim(),
                 senhaRede = senha.trim(),
                 tipoSeguranca = seguranca.ifBlank { "WPA2/WPA3" },
-                ehRedeVisitantes = false
+                ehRedeVisitantes = ehVisitantes
             )
-            repositorioCofre.salvarRedeWifiFamiliar(novaRede)
+            val listaAtual = _estado.value.redesWifi.toMutableList()
+            val idx = listaAtual.indexOfFirst {
+                (id != null && it.id == id) || it.nomeRedeSsid.equals(novaRede.nomeRedeSsid, ignoreCase = true)
+            }
+            if (idx >= 0) {
+                listaAtual[idx] = novaRede
+            } else {
+                listaAtual.add(novaRede)
+            }
+            repositorioCofre.salvarListaRedesWifiFamilia(listaAtual)
             _estado.update {
                 it.copy(
-                    redeWifi = novaRede,
-                    mensagemAlerta = "Configuração de Wi-Fi da família salva no Supabase!"
+                    redesWifi = listaAtual,
+                    redeWifi = listaAtual.firstOrNull(),
+                    mensagemAlerta = "Rede Wi-Fi '${novaRede.nomeRedeSsid}' salva e compartilhada com a família!"
                 )
             }
         }
+    }
+
+    fun excluirRedeWifi(redeId: String) {
+        viewModelScope.launch {
+            val novaLista = _estado.value.redesWifi.filterNot { it.id == redeId }
+            repositorioCofre.salvarListaRedesWifiFamilia(novaLista)
+            _estado.update {
+                it.copy(
+                    redesWifi = novaLista,
+                    redeWifi = novaLista.firstOrNull(),
+                    mensagemAlerta = "Rede Wi-Fi removida do Cofre da Família."
+                )
+            }
+        }
+    }
+
+    fun importarRedesWifiEmLote(novasRedes: List<RedeWifiFamiliar>) {
+        if (novasRedes.isEmpty()) {
+            _estado.update {
+                it.copy(
+                    mensagemAlerta = "Nenhum QR Code de Wi-Fi foi encontrado na(s) imagem(ns). Em Configurações → Wi-Fi → Compartilhar, tire print da tela com o QR Code e selecione aqui!"
+                )
+            }
+            return
+        }
+        viewModelScope.launch {
+            val listaAtual = _estado.value.redesWifi.toMutableList()
+            var adicionadasOuAtualizadas = 0
+            for (nova in novasRedes) {
+                if (nova.nomeRedeSsid.isBlank()) continue
+                val idx = listaAtual.indexOfFirst {
+                    it.nomeRedeSsid.equals(nova.nomeRedeSsid, ignoreCase = true)
+                }
+                if (idx >= 0) {
+                    listaAtual[idx] = nova.copy(id = listaAtual[idx].id)
+                } else {
+                    listaAtual.add(nova)
+                }
+                adicionadasOuAtualizadas++
+            }
+            repositorioCofre.salvarListaRedesWifiFamilia(listaAtual)
+            _estado.update {
+                it.copy(
+                    redesWifi = listaAtual,
+                    redeWifi = listaAtual.firstOrNull(),
+                    mensagemAlerta = "✅ $adicionadasOuAtualizadas rede(s) Wi-Fi importada(s) e compartilhada(s) com toda a família!"
+                )
+            }
+        }
+    }
+
+    fun exibirAlerta(mensagem: String) {
+        _estado.update { it.copy(mensagemAlerta = mensagem) }
     }
 
     fun limparAlerta() {

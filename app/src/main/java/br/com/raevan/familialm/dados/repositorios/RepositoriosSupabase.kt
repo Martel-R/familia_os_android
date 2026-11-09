@@ -15,11 +15,14 @@ import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
@@ -1502,7 +1505,7 @@ class RepositorioCofreSupabase : RepositorioCofre {
         emit(dtos.map { it.paraDominio() })
     }.catch { emit(emptyList()) }.flowOn(Dispatchers.IO)
 
-    override fun obterRedeWifiFamiliar(): Flow<RedeWifiFamiliar> = flow {
+    private suspend fun carregarListaRedesInterna(): List<RedeWifiFamiliar> {
         val familiaId = obterFamiliaAtivaSegura()
         val chaveTenant = if (familiaId == GerenciadorSessao.DEFAULT_FAMILIA_ID) {
             "WIFI_PRINCIPAL"
@@ -1520,35 +1523,101 @@ class RepositorioCofreSupabase : RepositorioCofre {
             null
         }
 
-        var ssid = "Familia_OS_5G"
-        var senha = "FamiliaSegura2026"
-        var seguranca = "WPA2/WPA3"
-        var visitante = false
-
+        val listaExtraida = mutableListOf<RedeWifiFamiliar>()
         val elemento = config?.valor
+
         if (elemento is JsonObject) {
-            ssid = elemento["nomeRedeSsid"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() } ?: ssid
-            senha = elemento["senhaRede"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() } ?: senha
-            seguranca = elemento["tipoSeguranca"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() } ?: seguranca
-            visitante = elemento["ehRedeVisitantes"]?.jsonPrimitive?.booleanOrNull ?: false
+            val redesArray = try { elemento["redes"] as? JsonArray } catch (_: Exception) { null }
+            if (redesArray != null && redesArray.isNotEmpty()) {
+                for (item in redesArray) {
+                    val obj = item as? JsonObject ?: continue
+                    val ssidItem = obj["nomeRedeSsid"]?.jsonPrimitive?.contentOrNull?.trim().orEmpty()
+                    if (ssidItem.isBlank()) continue
+                    val senhaItem = obj["senhaRede"]?.jsonPrimitive?.contentOrNull?.trim().orEmpty()
+                    val segItem = obj["tipoSeguranca"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() } ?: "WPA2/WPA3"
+                    val visitItem = obj["ehRedeVisitantes"]?.jsonPrimitive?.booleanOrNull ?: false
+                    val idItem = obj["id"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() } ?: UUID.randomUUID().toString()
+                    val apelidoItem = obj["apelido"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() } ?: ssidItem
+                    listaExtraida.add(
+                        RedeWifiFamiliar(
+                            id = idItem,
+                            apelido = apelidoItem,
+                            nomeRedeSsid = ssidItem,
+                            senhaRede = senhaItem,
+                            tipoSeguranca = segItem,
+                            ehRedeVisitantes = visitItem
+                        )
+                    )
+                }
+            }
+
+            if (listaExtraida.isEmpty()) {
+                val ssid = elemento["nomeRedeSsid"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
+                val senha = elemento["senhaRede"]?.jsonPrimitive?.contentOrNull.orEmpty()
+                val seguranca = elemento["tipoSeguranca"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() } ?: "WPA2/WPA3"
+                val visitante = elemento["ehRedeVisitantes"]?.jsonPrimitive?.booleanOrNull ?: false
+                if (!ssid.isNullOrBlank()) {
+                    listaExtraida.add(
+                        RedeWifiFamiliar(
+                            id = "principal",
+                            apelido = "Wi-Fi Principal da Casa",
+                            nomeRedeSsid = ssid,
+                            senhaRede = senha,
+                            tipoSeguranca = seguranca,
+                            ehRedeVisitantes = visitante
+                        )
+                    )
+                }
+            }
         } else if (elemento is JsonPrimitive) {
             val partes = elemento.contentOrNull?.split("|") ?: emptyList()
-            ssid = partes.getOrNull(0)?.takeIf { it.isNotBlank() } ?: ssid
-            senha = partes.getOrNull(1)?.takeIf { it.isNotBlank() } ?: senha
-            seguranca = partes.getOrNull(2)?.takeIf { it.isNotBlank() } ?: seguranca
+            val ssid = partes.getOrNull(0)?.takeIf { it.isNotBlank() }
+            val senha = partes.getOrNull(1).orEmpty()
+            val seguranca = partes.getOrNull(2)?.takeIf { it.isNotBlank() } ?: "WPA2/WPA3"
+            if (!ssid.isNullOrBlank()) {
+                listaExtraida.add(
+                    RedeWifiFamiliar(
+                        id = "principal",
+                        apelido = "Wi-Fi Principal da Casa",
+                        nomeRedeSsid = ssid,
+                        senhaRede = senha,
+                        tipoSeguranca = seguranca,
+                        ehRedeVisitantes = false
+                    )
+                )
+            }
         }
 
-        emit(
-            RedeWifiFamiliar(
-                nomeRedeSsid = ssid,
-                senhaRede = senha,
-                tipoSeguranca = seguranca,
-                ehRedeVisitantes = visitante
+        if (listaExtraida.isEmpty()) {
+            listaExtraida.add(
+                RedeWifiFamiliar(
+                    id = "principal",
+                    apelido = "Wi-Fi Principal da Casa",
+                    nomeRedeSsid = "Familia_OS_5G",
+                    senhaRede = "FamiliaSegura2026",
+                    tipoSeguranca = "WPA2/WPA3",
+                    ehRedeVisitantes = false
+                )
             )
-        )
+        }
+
+        return listaExtraida
+    }
+
+    override fun listarRedesWifiFamilia(): Flow<List<RedeWifiFamiliar>> = flow {
+        emit(carregarListaRedesInterna())
+    }.catch {
+        emit(emptyList())
+    }.flowOn(Dispatchers.IO)
+
+    override fun obterRedeWifiFamiliar(): Flow<RedeWifiFamiliar> = flow {
+        val lista = carregarListaRedesInterna()
+        emit(lista.first())
     }.catch {
         emit(
             RedeWifiFamiliar(
+                id = "principal",
+                apelido = "Wi-Fi Principal da Casa",
                 nomeRedeSsid = "Familia_OS_5G",
                 senhaRede = "FamiliaSegura2026",
                 tipoSeguranca = "WPA2/WPA3",
@@ -1557,7 +1626,7 @@ class RepositorioCofreSupabase : RepositorioCofre {
         )
     }.flowOn(Dispatchers.IO)
 
-    override suspend fun salvarRedeWifiFamiliar(wifi: RedeWifiFamiliar) = withContext(Dispatchers.IO) {
+    override suspend fun salvarListaRedesWifiFamilia(redes: List<RedeWifiFamiliar>) = withContext(Dispatchers.IO) {
         try {
             val familiaId = obterFamiliaAtivaSegura()
             val chaveTenant = if (familiaId == GerenciadorSessao.DEFAULT_FAMILIA_ID) {
@@ -1565,11 +1634,37 @@ class RepositorioCofreSupabase : RepositorioCofre {
             } else {
                 "WIFI_PRINCIPAL:$familiaId"
             }
+            val principal = redes.firstOrNull() ?: RedeWifiFamiliar(
+                id = "principal",
+                apelido = "Wi-Fi da Família",
+                nomeRedeSsid = "Familia_OS_5G",
+                senhaRede = "",
+                tipoSeguranca = "WPA2/WPA3",
+                ehRedeVisitantes = false
+            )
+
             val valorJson = buildJsonObject {
-                put("nomeRedeSsid", wifi.nomeRedeSsid.trim())
-                put("senhaRede", wifi.senhaRede.trim())
-                put("tipoSeguranca", wifi.tipoSeguranca.trim())
-                put("ehRedeVisitantes", wifi.ehRedeVisitantes)
+                put("nomeRedeSsid", principal.nomeRedeSsid.trim())
+                put("senhaRede", principal.senhaRede.trim())
+                put("tipoSeguranca", principal.tipoSeguranca.trim())
+                put("ehRedeVisitantes", principal.ehRedeVisitantes)
+                put(
+                    "redes",
+                    buildJsonArray {
+                        for (r in redes) {
+                            add(
+                                buildJsonObject {
+                                    put("id", r.id.ifBlank { UUID.randomUUID().toString() })
+                                    put("apelido", r.apelido.trim().ifBlank { r.nomeRedeSsid.trim() })
+                                    put("nomeRedeSsid", r.nomeRedeSsid.trim())
+                                    put("senhaRede", r.senhaRede.trim())
+                                    put("tipoSeguranca", r.tipoSeguranca.trim().ifBlank { "WPA2/WPA3" })
+                                    put("ehRedeVisitantes", r.ehRedeVisitantes)
+                                }
+                            )
+                        }
+                    }
+                )
             }
 
             val dto = ConfiguracaoCasaDto(
@@ -1582,6 +1677,19 @@ class RepositorioCofreSupabase : RepositorioCofre {
             }
         } catch (_: Exception) {}
         Unit
+    }
+
+    override suspend fun salvarRedeWifiFamiliar(wifi: RedeWifiFamiliar) = withContext(Dispatchers.IO) {
+        val atuais = carregarListaRedesInterna().toMutableList()
+        val idx = atuais.indexOfFirst {
+            it.id == wifi.id || it.nomeRedeSsid.equals(wifi.nomeRedeSsid, ignoreCase = true)
+        }
+        if (idx >= 0) {
+            atuais[idx] = wifi
+        } else {
+            atuais.add(wifi)
+        }
+        salvarListaRedesWifiFamilia(atuais)
     }
 
     override suspend fun excluirCredencial(credencialId: String) = withContext(Dispatchers.IO) {
