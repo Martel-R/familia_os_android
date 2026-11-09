@@ -233,6 +233,7 @@ fun TelaPainelPrincipal(
 
             // Check-in de Humor na Tela Inicial
             item {
+                val contextoLocal = androidx.compose.ui.platform.LocalContext.current
                 val ultimoHumor = estado.ultimoCheckinHumor
                 val opcoesHumor = listOf(
                     Triple(1, "😢", "Mal"),
@@ -310,7 +311,7 @@ fun TelaPainelPrincipal(
                                         .clickable {
                                             viewModel.registrarCheckinHumorRapido(nivel)
                                             br.com.raevan.familialm.nucleo.widgets.WidgetCheckinHumorProvider
-                                                .sincronizarHumorLocal(contexto, nivel)
+                                                .sincronizarHumorLocal(contextoLocal, nivel)
                                         },
                                     shape = RoundedCornerShape(14.dp),
                                     color = if (selecionado) CorSaude.copy(alpha = 0.16f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),

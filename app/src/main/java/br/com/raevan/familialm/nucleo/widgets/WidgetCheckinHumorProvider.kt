@@ -11,7 +11,7 @@ import android.widget.Toast
 import br.com.raevan.familialm.MainActivity
 import br.com.raevan.familialm.R
 import br.com.raevan.familialm.dados.rede.ClienteSupabase
-import br.com.raevan.familialm.dados.rede.GerenciadorSessao
+import br.com.raevan.familialm.dados.sessao.GerenciadorSessao
 import br.com.raevan.familialm.dados.remoto.dto.CheckinSaudeDto
 import br.com.raevan.familialm.dados.remoto.dto.UsuarioDto
 import io.github.jan.supabase.auth.auth
@@ -107,7 +107,7 @@ class WidgetCheckinHumorProvider : AppWidgetProvider() {
                 }
 
                 if (!userId.isNullOrBlank()) {
-                    val familiaId = GerenciadorSessao.obterFamiliaId().ifBlank { GerenciadorSessao.DEFAULT_FAMILIA_ID }
+                    val familiaId = GerenciadorSessao.inicializar(context.applicationContext).obterFamiliaIdAtiva()
                     val dto = CheckinSaudeDto(
                         id = UUID.randomUUID().toString(),
                         familiaId = familiaId,

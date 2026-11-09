@@ -121,7 +121,7 @@ class PainelViewModel : ViewModel() {
                 nomeUsuario = usuario?.nome ?: "Membro",
                 nivelHumor = nivel,
                 notasDiario = "Check-in rápido pela Tela Inicial ($rotulo)",
-                registradoEm = "Agora mesmo"
+                criadoEm = "Agora mesmo"
             )
             repositorioSaude.registrarCheckin(checkin)
             _estado.update {
