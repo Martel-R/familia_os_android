@@ -188,7 +188,9 @@ class ComprasViewModel : ViewModel() {
         nomeProduto: String,
         quantidade: Double,
         valorUnitario: Double,
-        categoria: String
+        categoria: String,
+        codigoProduto: String? = null,
+        fornecedor: String? = null
     ) {
         viewModelScope.launch {
             repositorioCompras.adicionarItemAoRecibo(
@@ -196,7 +198,9 @@ class ComprasViewModel : ViewModel() {
                 nomeProduto = nomeProduto,
                 quantidade = quantidade,
                 valorUnitario = valorUnitario,
-                categoriaSugerida = categoria
+                categoriaSugerida = categoria,
+                codigoProduto = codigoProduto,
+                fornecedor = fornecedor
             )
             _estado.update { it.copy(mensagemSucesso = "Item '$nomeProduto' adicionado à nota!") }
             observarDados()
@@ -209,7 +213,9 @@ class ComprasViewModel : ViewModel() {
         nomeProduto: String,
         quantidade: Double,
         valorUnitario: Double,
-        categoria: String
+        categoria: String,
+        codigoProduto: String? = null,
+        fornecedor: String? = null
     ) {
         viewModelScope.launch {
             try {
@@ -219,9 +225,14 @@ class ComprasViewModel : ViewModel() {
                     nomeProduto = nomeProduto,
                     quantidade = quantidade,
                     valorUnitario = valorUnitario,
-                    categoriaSugerida = categoria
+                    categoriaSugerida = categoria,
+                    codigoProduto = codigoProduto,
+                    fornecedor = fornecedor
                 )
-                _estado.update { it.copy(mensagemSucesso = "Item '$nomeProduto' atualizado com sucesso!") }
+                val avisoCatalogo = if (!codigoProduto.isNullOrBlank()) {
+                    " (Código #$codigoProduto vinculado a ${fornecedor ?: "esta loja"} para próximas leituras!)"
+                } else ""
+                _estado.update { it.copy(mensagemSucesso = "Item '$nomeProduto' atualizado!$avisoCatalogo") }
                 observarDados()
             } catch (e: Exception) {
                 val msgLimpa = (e.message ?: "Erro desconhecido").substringBefore("URL:").trim()

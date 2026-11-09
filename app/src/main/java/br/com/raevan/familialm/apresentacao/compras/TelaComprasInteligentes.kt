@@ -228,6 +228,7 @@ fun TelaComprasInteligentes(
                 (r.fornecedor ?: "").lowercase().contains(termo) ||
                     r.itens.any {
                         it.nomeProduto.lowercase().contains(termo) ||
+                            (it.codigoProduto ?: "").lowercase().contains(termo) ||
                             (it.categoriaSugerida ?: "").lowercase().contains(termo)
                     }
             }
@@ -619,13 +620,15 @@ fun TelaComprasInteligentes(
         DialogoAdicionarItemAvulso(
             nomeFornecedor = reciboAlvo.fornecedor ?: "Nota Fiscal",
             aoFechar = { reciboParaAdicionarItem = null },
-            aoSalvar = { nomeProd, qtd, valorUnit, cat ->
+            aoSalvar = { codProd, nomeProd, qtd, valorUnit, cat ->
                 viewModel.adicionarItemEmRecibo(
                     reciboId = reciboAlvo.id,
                     nomeProduto = nomeProd,
                     quantidade = qtd,
                     valorUnitario = valorUnit,
-                    categoria = cat
+                    categoria = cat,
+                    codigoProduto = codProd,
+                    fornecedor = reciboAlvo.fornecedor
                 )
                 reciboParaAdicionarItem = null
             }
@@ -640,14 +643,16 @@ fun TelaComprasInteligentes(
             nomeFornecedor = reciboOrigem.fornecedor ?: "Nota Fiscal",
             itemInicial = itemAtual,
             aoFechar = { itemParaEditar = null },
-            aoSalvar = { nomeProd, qtd, valorUnit, cat ->
+            aoSalvar = { codProd, nomeProd, qtd, valorUnit, cat ->
                 viewModel.atualizarItemEmRecibo(
                     itemId = itemAtual.id,
                     reciboId = reciboOrigem.id,
                     nomeProduto = nomeProd,
                     quantidade = qtd,
                     valorUnitario = valorUnit,
-                    categoria = cat
+                    categoria = cat,
+                    codigoProduto = codProd,
+                    fornecedor = reciboOrigem.fornecedor
                 )
                 itemParaEditar = null
             }
@@ -778,8 +783,9 @@ fun ItemCardRecibo(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
+                            val prefixoCod = item.codigoProduto?.takeIf { it.isNotBlank() }?.let { "[#$it] " } ?: ""
                             Text(
-                                text = "• ${item.nomeProduto}",
+                                text = "• $prefixoCod${item.nomeProduto}",
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Medium
                             )
@@ -856,6 +862,7 @@ fun DialogoRevisaoNotaIa(
     }
 
     // Campos para adicionar novo item na revisão
+    var novoCodigo by remember { mutableStateOf("") }
     var novoNome by remember { mutableStateOf("") }
     var novaQtd by remember { mutableStateOf("1") }
     var novoValorUnit by remember { mutableStateOf("") }
@@ -863,6 +870,7 @@ fun DialogoRevisaoNotaIa(
 
     // Estado para edição inline de qualquer item lido pela IA
     var indiceItemEditando by remember { mutableStateOf<Int?>(null) }
+    var edicaoCodigo by remember { mutableStateOf("") }
     var edicaoNome by remember { mutableStateOf("") }
     var edicaoQtd by remember { mutableStateOf("1") }
     var edicaoValorUnit by remember { mutableStateOf("") }
@@ -984,13 +992,25 @@ fun DialogoRevisaoNotaIa(
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 13.sp
                                 )
-                                OutlinedTextField(
-                                    value = novoNome,
-                                    onValueChange = { novoNome = it },
-                                    label = { Text("Nome do Produto") },
-                                    singleLine = true,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    OutlinedTextField(
+                                        value = novoCodigo,
+                                        onValueChange = { novoCodigo = it },
+                                        label = { Text("Cód. Item") },
+                                        singleLine = true,
+                                        modifier = Modifier.weight(0.9f)
+                                    )
+                                    OutlinedTextField(
+                                        value = novoNome,
+                                        onValueChange = { novoNome = it },
+                                        label = { Text("Nome do Produto") },
+                                        singleLine = true,
+                                        modifier = Modifier.weight(1.8f)
+                                    )
+                                }
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -1023,9 +1043,11 @@ fun DialogoRevisaoNotaIa(
                                                         nomeProduto = novoNome.trim(),
                                                         quantidade = q,
                                                         valorUnitario = v,
-                                                        categoriaSugerida = novaCategoria
+                                                        categoriaSugerida = novaCategoria,
+                                                        codigoProduto = novoCodigo.trim().takeIf { it.isNotEmpty() }
                                                     )
                                                 )
+                                                novoCodigo = ""
                                                 novoNome = ""
                                                 novaQtd = "1"
                                                 novoValorUnit = ""
@@ -1079,6 +1101,7 @@ fun DialogoRevisaoNotaIa(
                                                 indiceItemEditando = null
                                             } else {
                                                 indiceItemEditando = idx
+                                                edicaoCodigo = item.codigoProduto ?: ""
                                                 edicaoNome = item.nomeProduto
                                                 edicaoQtd = item.quantidade.toString()
                                                 edicaoValorUnit = String.format(java.util.Locale.US, "%.2f", item.valorUnitario)
@@ -1089,8 +1112,9 @@ fun DialogoRevisaoNotaIa(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Column(modifier = Modifier.weight(1f)) {
+                                        val prefixoCod = item.codigoProduto?.takeIf { it.isNotBlank() }?.let { "[#$it] " } ?: ""
                                         Text(
-                                            text = item.nomeProduto,
+                                            text = "$prefixoCod${item.nomeProduto}",
                                             fontWeight = FontWeight.SemiBold,
                                             fontSize = 13.sp
                                         )
@@ -1112,6 +1136,7 @@ fun DialogoRevisaoNotaIa(
                                                 indiceItemEditando = null
                                             } else {
                                                 indiceItemEditando = idx
+                                                edicaoCodigo = item.codigoProduto ?: ""
                                                 edicaoNome = item.nomeProduto
                                                 edicaoQtd = item.quantidade.toString()
                                                 edicaoValorUnit = String.format(java.util.Locale.US, "%.2f", item.valorUnitario)
@@ -1152,13 +1177,25 @@ fun DialogoRevisaoNotaIa(
                                     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
                                     Spacer(modifier = Modifier.height(8.dp))
 
-                                    OutlinedTextField(
-                                        value = edicaoNome,
-                                        onValueChange = { edicaoNome = it },
-                                        label = { Text("Nome do Produto") },
-                                        singleLine = true,
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        OutlinedTextField(
+                                            value = edicaoCodigo,
+                                            onValueChange = { edicaoCodigo = it },
+                                            label = { Text("Código") },
+                                            singleLine = true,
+                                            modifier = Modifier.weight(0.9f)
+                                        )
+                                        OutlinedTextField(
+                                            value = edicaoNome,
+                                            onValueChange = { edicaoNome = it },
+                                            label = { Text("Nome do Produto") },
+                                            singleLine = true,
+                                            modifier = Modifier.weight(1.8f)
+                                        )
+                                    }
                                     Spacer(modifier = Modifier.height(6.dp))
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
@@ -1204,6 +1241,7 @@ fun DialogoRevisaoNotaIa(
                                                     val q = edicaoQtd.replace(",", ".").toDoubleOrNull()?.takeIf { it > 0.0 } ?: 1.0
                                                     val v = edicaoValorUnit.replace(",", ".").toDoubleOrNull() ?: 0.0
                                                     listaItens[idx] = item.copy(
+                                                        codigoProduto = edicaoCodigo.trim().takeIf { it.isNotEmpty() },
                                                         nomeProduto = edicaoNome.trim(),
                                                         quantidade = q,
                                                         valorUnitario = v,
@@ -1274,8 +1312,9 @@ fun DialogoRevisaoNotaIa(
 fun DialogoAdicionarItemAvulso(
     nomeFornecedor: String,
     aoFechar: () -> Unit,
-    aoSalvar: (nomeProduto: String, quantidade: Double, valorUnitario: Double, categoria: String) -> Unit
+    aoSalvar: (codigoProduto: String?, nomeProduto: String, quantidade: Double, valorUnitario: Double, categoria: String) -> Unit
 ) {
+    var codigoProduto by remember { mutableStateOf("") }
     var nomeProduto by remember { mutableStateOf("") }
     var quantidadeTexto by remember { mutableStateOf("1") }
     var valorUnitarioTexto by remember { mutableStateOf("") }
@@ -1286,6 +1325,14 @@ fun DialogoAdicionarItemAvulso(
         title = { Text("Adicionar Item • $nomeFornecedor", fontWeight = FontWeight.Bold, fontSize = 16.sp) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(
+                    value = codigoProduto,
+                    onValueChange = { codigoProduto = it },
+                    label = { Text("Código do Produto na Loja (Opcional)") },
+                    placeholder = { Text("Ex: 7891000100103 ou 2045") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
                 OutlinedTextField(
                     value = nomeProduto,
                     onValueChange = { nomeProduto = it },
@@ -1328,7 +1375,13 @@ fun DialogoAdicionarItemAvulso(
                     if (nomeProduto.isNotBlank()) {
                         val qtd = quantidadeTexto.replace(",", ".").toDoubleOrNull() ?: 1.0
                         val valUnit = valorUnitarioTexto.replace(",", ".").toDoubleOrNull() ?: 0.0
-                        aoSalvar(nomeProduto.trim(), qtd, valUnit, categoria.trim())
+                        aoSalvar(
+                            codigoProduto.trim().takeIf { it.isNotEmpty() },
+                            nomeProduto.trim(),
+                            qtd,
+                            valUnit,
+                            categoria.trim()
+                        )
                     }
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = CorCompras)
@@ -1349,8 +1402,9 @@ fun DialogoEditarItemRecibo(
     nomeFornecedor: String,
     itemInicial: ItemCompraExtraido,
     aoFechar: () -> Unit,
-    aoSalvar: (nomeProduto: String, quantidade: Double, valorUnitario: Double, categoria: String) -> Unit
+    aoSalvar: (codigoProduto: String?, nomeProduto: String, quantidade: Double, valorUnitario: Double, categoria: String) -> Unit
 ) {
+    var codigoProduto by remember(itemInicial) { mutableStateOf(itemInicial.codigoProduto ?: "") }
     var nomeProduto by remember(itemInicial) { mutableStateOf(itemInicial.nomeProduto) }
     var quantidadeTexto by remember(itemInicial) { mutableStateOf(itemInicial.quantidade.toString()) }
     var valorUnitarioTexto by remember(itemInicial) {
@@ -1364,9 +1418,17 @@ fun DialogoEditarItemRecibo(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedTextField(
+                    value = codigoProduto,
+                    onValueChange = { codigoProduto = it },
+                    label = { Text("Código do Produto na Loja") },
+                    placeholder = { Text("Ex: 7891000100103 ou 2045") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
                     value = nomeProduto,
                     onValueChange = { nomeProduto = it },
-                    label = { Text("Nome do Produto") },
+                    label = { Text("Nome / Descrição Personalizada") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -1396,6 +1458,11 @@ fun DialogoEditarItemRecibo(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
+                Text(
+                    text = "💡 Memória Inteligente: Ao salvar com código, esta descrição fica vinculada à chave ($nomeFornecedor + Código) para ser reconhecida automaticamente nas próximas notas!",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         },
         confirmButton = {
@@ -1404,7 +1471,13 @@ fun DialogoEditarItemRecibo(
                     if (nomeProduto.isNotBlank()) {
                         val qtd = quantidadeTexto.replace(",", ".").toDoubleOrNull()?.takeIf { it > 0.0 } ?: 1.0
                         val valUnit = valorUnitarioTexto.replace(",", ".").toDoubleOrNull() ?: 0.0
-                        aoSalvar(nomeProduto.trim(), qtd, valUnit, categoria.trim())
+                        aoSalvar(
+                            codigoProduto.trim().takeIf { it.isNotEmpty() },
+                            nomeProduto.trim(),
+                            qtd,
+                            valUnit,
+                            categoria.trim()
+                        )
                     }
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = CorCompras)

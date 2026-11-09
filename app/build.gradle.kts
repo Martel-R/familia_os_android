@@ -13,8 +13,8 @@ android {
         applicationId = "br.com.raevan.familialm"
         minSdk = 29
         targetSdk = 35
-        versionCode = 12
-        versionName = "3.0-wifi-familia"
+        versionCode = 13
+        versionName = "3.1-catalogo-compras"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

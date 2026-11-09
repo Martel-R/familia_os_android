@@ -1830,14 +1830,150 @@ class RepositorioComprasSupabase : RepositorioCompras {
         Unit
     }
 
+    private fun normalizarFornecedor(fornecedor: String?): String {
+        return (fornecedor ?: "")
+            .trim()
+            .replace(Regex("\\s+"), " ")
+            .uppercase()
+    }
+
+    private fun normalizarCodigoProduto(codigo: String?): String {
+        val limpo = (codigo ?: "").trim().replace(Regex("\\s+"), "").uppercase()
+        if (limpo.isEmpty() || limpo == "NULL") return ""
+        val semZeros = limpo.replace(Regex("^0+(?=\\d)"), "")
+        return semZeros.ifEmpty { limpo }
+    }
+
+    private suspend fun sincronizarItemNoCatalogo(
+        familiaId: String,
+        fornecedor: String?,
+        codigoProduto: String?,
+        nomeProduto: String,
+        categoriaSugerida: String?,
+        valorUnitario: Double
+    ) {
+        val codBruto = codigoProduto?.trim()?.takeIf { it.isNotEmpty() && it.lowercase() != "null" } ?: return
+        val fornLimpo = fornecedor?.trim()?.takeIf { it.isNotEmpty() && it.lowercase() != "null" } ?: "Supermercado"
+        val fornNorm = normalizarFornecedor(fornLimpo)
+        val codNorm = normalizarCodigoProduto(codBruto)
+        if (fornNorm.isEmpty() || codNorm.isEmpty() || nomeProduto.isBlank()) return
+
+        try {
+            val existentes = ClienteSupabase.client.from("compras_catalogo_produtos")
+                .select {
+                    filter {
+                        eq("familia_id", familiaId)
+                        eq("fornecedor_normalizado", fornNorm)
+                        eq("codigo_produto", codNorm)
+                    }
+                }
+                .decodeList<CatalogoProdutoCompraDto>()
+
+            if (existentes.isNotEmpty()) {
+                val idExistente = existentes.first().id
+                if (!idExistente.isNullOrBlank()) {
+                    ClienteSupabase.client.from("compras_catalogo_produtos").update({
+                        set("fornecedor", fornLimpo)
+                        set("nome_produto", nomeProduto.trim())
+                        set("categoria_sugerida", (categoriaSugerida ?: "Alimentação").ifBlank { "Alimentação" })
+                        set("ultimo_valor_unitario", valorUnitario)
+                    }) {
+                        filter { eq("id", idExistente) }
+                    }
+                }
+            } else {
+                val novoDto = CatalogoProdutoCompraDto(
+                    id = UUID.randomUUID().toString(),
+                    familiaId = familiaId,
+                    fornecedor = fornLimpo,
+                    fornecedorNormalizado = fornNorm,
+                    codigoProduto = codNorm,
+                    nomeProduto = nomeProduto.trim(),
+                    categoriaSugerida = (categoriaSugerida ?: "Alimentação").ifBlank { "Alimentação" },
+                    ultimoValorUnitario = valorUnitario
+                )
+                ClienteSupabase.client.from("compras_catalogo_produtos").insert(novoDto)
+            }
+        } catch (_: Exception) {}
+    }
+
+    private suspend fun reconciliarItensComCatalogo(
+        familiaId: String,
+        fornecedor: String?,
+        itens: List<ItemCompraExtraido>
+    ): List<ItemCompraExtraido> {
+        if (itens.isEmpty()) return itens
+        return try {
+            val catalogo = ClienteSupabase.client.from("compras_catalogo_produtos")
+                .select {
+                    filter { eq("familia_id", familiaId) }
+                }
+                .decodeList<CatalogoProdutoCompraDto>()
+
+            if (catalogo.isEmpty()) return itens
+
+            val fornRecibo = normalizarFornecedor(fornecedor)
+            val mapaExato = mutableMapOf<Pair<String, String>, CatalogoProdutoCompraDto>()
+            val mapaPorCodigo = mutableMapOf<String, MutableList<CatalogoProdutoCompraDto>>()
+
+            for (reg in catalogo) {
+                val fCat = normalizarFornecedor(reg.fornecedorNormalizado.ifBlank { reg.fornecedor })
+                val cRaw = reg.codigoProduto.trim().uppercase()
+                val cNorm = normalizarCodigoProduto(cRaw)
+                if (cNorm.isEmpty()) continue
+                mapaExato[fCat to cRaw] = reg
+                mapaExato[fCat to cNorm] = reg
+                mapaPorCodigo.getOrPut(cRaw) { mutableListOf() }.add(reg)
+                if (cNorm != cRaw) {
+                    mapaPorCodigo.getOrPut(cNorm) { mutableListOf() }.add(reg)
+                }
+            }
+
+            itens.map { item ->
+                val codItem = item.codigoProduto?.trim().orEmpty()
+                if (codItem.isEmpty()) {
+                    item
+                } else {
+                    val codUpper = codItem.uppercase()
+                    val codNorm = normalizarCodigoProduto(codUpper)
+
+                    // 1. Prioridade máxima: Chave composta exata (fornecedor_normalizado + codigo_produto)
+                    var match = mapaExato[fornRecibo to codUpper] ?: mapaExato[fornRecibo to codNorm]
+
+                    // 2. Fallback para pequenas variações de OCR no nome da loja com o mesmo código de produto
+                    if (match == null && fornRecibo.isNotEmpty()) {
+                        val candidatos = mapaPorCodigo[codUpper] ?: mapaPorCodigo[codNorm] ?: emptyList()
+                        match = candidatos.firstOrNull { reg ->
+                            val fCat = normalizarFornecedor(reg.fornecedorNormalizado.ifBlank { reg.fornecedor })
+                            fCat.isNotEmpty() && (fCat.contains(fornRecibo) || fornRecibo.contains(fCat))
+                        }
+                    }
+
+                    if (match != null && match.nomeProduto.isNotBlank()) {
+                        item.copy(
+                            codigoProduto = codNorm,
+                            nomeProduto = match.nomeProduto.trim(),
+                            categoriaSugerida = match.categoriaSugerida?.takeIf { it.isNotBlank() } ?: item.categoriaSugerida
+                        )
+                    } else {
+                        item.copy(codigoProduto = codNorm)
+                    }
+                }
+            }
+        } catch (_: Exception) {
+            itens
+        }
+    }
+
     override suspend fun extrairNotaComIa(
         bytesArquivo: ByteArray,
         mimeType: String,
         nomeArquivo: String
     ): ReciboCompra = withContext(Dispatchers.IO) {
+        val familiaId = obterFamiliaAtivaSegura()
         val urls = listOf(
-            "https://ai-familia.martel.page/api/ocr/receipt",
-            "https://familia.martel.page/api/ocr/receipt"
+            "https://ai-familia.martel.page/api/ocr/receipt?familia_id=$familiaId",
+            "https://familia.martel.page/api/ocr/receipt?familia_id=$familiaId"
         )
         var ultimoErro = "Não foi possível comunicar com o serviço de IA."
 
@@ -1882,6 +2018,10 @@ class RepositorioComprasSupabase : RepositorioCompras {
                             val obj = itensJson.optJSONObject(i) ?: continue
                             val nomeProd = obj.optString("nome_produto", "").trim()
                             if (nomeProd.isNotEmpty()) {
+                                val codProd = obj.optString("codigo_produto", "")
+                                    .trim()
+                                    .takeIf { it.isNotBlank() && it.lowercase() != "null" }
+                                    ?.let { normalizarCodigoProduto(it) }
                                 val qtd = obj.optDouble("quantidade", 1.0).let { if (it.isNaN() || it <= 0.0) 1.0 else it }
                                 val valUnit = obj.optDouble("valor_unitario", 0.0).let { if (it.isNaN() || it < 0.0) 0.0 else it }
                                 val cat = obj.optString("categoria_sugerida", "Alimentação").takeIf { it.isNotBlank() && it != "null" }
@@ -1893,13 +2033,19 @@ class RepositorioComprasSupabase : RepositorioCompras {
                                         nomeProduto = nomeProd,
                                         quantidade = qtd,
                                         valorUnitario = valUnit,
-                                        categoriaSugerida = cat
+                                        categoriaSugerida = cat,
+                                        codigoProduto = codProd
                                     )
                                 )
                             }
                         }
                     }
-                    val somaItens = itensExtraidos.sumOf { it.quantidade * it.valorUnitario }
+                    val itensReconciliados = reconciliarItensComCatalogo(
+                        familiaId = familiaId,
+                        fornecedor = fornecedor,
+                        itens = itensExtraidos
+                    )
+                    val somaItens = itensReconciliados.sumOf { it.quantidade * it.valorUnitario }
                     val valorTotal = json.optDouble("valor_total", 0.0).let {
                         if (it.isNaN() || it <= 0.0) somaItens else it
                     }
@@ -1908,7 +2054,7 @@ class RepositorioComprasSupabase : RepositorioCompras {
                         fornecedor = fornecedor,
                         dataCompra = dataCompra,
                         valorTotal = valorTotal,
-                        itens = itensExtraidos
+                        itens = itensReconciliados
                     )
                 } else {
                     val errTxt = try {
@@ -2000,13 +2146,16 @@ class RepositorioComprasSupabase : RepositorioCompras {
         )
         ClienteSupabase.client.from("compras_recibos").insert(reciboDto)
 
+        val fornecedorLimpo = fornecedor.trim().ifBlank { "Supermercado" }
         val itensValidos = itens.filter { it.nomeProduto.isNotBlank() }
         if (itensValidos.isNotEmpty()) {
             val dtosItens = itensValidos.map { item ->
+                val codNorm = item.codigoProduto?.let { normalizarCodigoProduto(it) }?.takeIf { it.isNotEmpty() }
                 ItemCompraExtraidoDto(
                     id = UUID.randomUUID().toString(),
                     familiaId = familiaId,
                     reciboId = reciboId,
+                    codigoProduto = codNorm,
                     nomeProduto = item.nomeProduto.trim(),
                     quantidade = if (item.quantidade > 0.0) item.quantidade else 1.0,
                     valorUnitario = item.valorUnitario,
@@ -2014,6 +2163,20 @@ class RepositorioComprasSupabase : RepositorioCompras {
                 )
             }
             ClienteSupabase.client.from("compras_itens_extraidos").insert(dtosItens)
+
+            // Sincroniza itens que possuem código com o catálogo composto (fornecedor + código)
+            for (item in itensValidos) {
+                if (!item.codigoProduto.isNullOrBlank()) {
+                    sincronizarItemNoCatalogo(
+                        familiaId = familiaId,
+                        fornecedor = fornecedorLimpo,
+                        codigoProduto = item.codigoProduto,
+                        nomeProduto = item.nomeProduto,
+                        categoriaSugerida = item.categoriaSugerida,
+                        valorUnitario = item.valorUnitario
+                    )
+                }
+            }
         }
 
         if (lancarEmFinancas && valorTotal > 0.0) {
@@ -2038,14 +2201,18 @@ class RepositorioComprasSupabase : RepositorioCompras {
         nomeProduto: String,
         quantidade: Double,
         valorUnitario: Double,
-        categoriaSugerida: String
+        categoriaSugerida: String,
+        codigoProduto: String?,
+        fornecedor: String?
     ) = withContext(Dispatchers.IO) {
         try {
             val familiaId = obterFamiliaAtivaSegura()
+            val codNorm = codigoProduto?.let { normalizarCodigoProduto(it) }?.takeIf { it.isNotEmpty() }
             val dto = ItemCompraExtraidoDto(
                 id = UUID.randomUUID().toString(),
                 familiaId = familiaId,
                 reciboId = reciboId,
+                codigoProduto = codNorm,
                 nomeProduto = nomeProduto.trim(),
                 quantidade = if (quantidade > 0.0) quantidade else 1.0,
                 valorUnitario = valorUnitario,
@@ -2053,6 +2220,16 @@ class RepositorioComprasSupabase : RepositorioCompras {
             )
             ClienteSupabase.client.from("compras_itens_extraidos").insert(dto)
             recalcularValorTotalRecibo(reciboId)
+            if (!codNorm.isNullOrBlank()) {
+                sincronizarItemNoCatalogo(
+                    familiaId = familiaId,
+                    fornecedor = fornecedor,
+                    codigoProduto = codNorm,
+                    nomeProduto = nomeProduto,
+                    categoriaSugerida = categoriaSugerida,
+                    valorUnitario = valorUnitario
+                )
+            }
         } catch (_: Exception) {}
         Unit
     }
@@ -2079,10 +2256,15 @@ class RepositorioComprasSupabase : RepositorioCompras {
         nomeProduto: String,
         quantidade: Double,
         valorUnitario: Double,
-        categoriaSugerida: String
+        categoriaSugerida: String,
+        codigoProduto: String?,
+        fornecedor: String?
     ) = withContext(Dispatchers.IO) {
+        val familiaId = obterFamiliaAtivaSegura()
         val qtdFinal = if (quantidade > 0.0) quantidade else 1.0
+        val codNorm = codigoProduto?.let { normalizarCodigoProduto(it) }?.takeIf { it.isNotEmpty() }
         ClienteSupabase.client.from("compras_itens_extraidos").update({
+            set("codigo_produto", codNorm)
             set("nome_produto", nomeProduto.trim())
             set("quantidade", qtdFinal)
             set("valor_unitario", valorUnitario)
@@ -2091,6 +2273,16 @@ class RepositorioComprasSupabase : RepositorioCompras {
             filter { eq("id", itemId) }
         }
         recalcularValorTotalRecibo(reciboId)
+        if (!codNorm.isNullOrBlank()) {
+            sincronizarItemNoCatalogo(
+                familiaId = familiaId,
+                fornecedor = fornecedor,
+                codigoProduto = codNorm,
+                nomeProduto = nomeProduto,
+                categoriaSugerida = categoriaSugerida,
+                valorUnitario = valorUnitario
+            )
+        }
         Unit
     }
 
@@ -2138,7 +2330,8 @@ class RepositorioComprasSupabase : RepositorioCompras {
         nomeProduto = nomeProduto,
         quantidade = quantidade,
         valorUnitario = valorUnitario,
-        categoriaSugerida = categoriaSugerida
+        categoriaSugerida = categoriaSugerida,
+        codigoProduto = codigoProduto
     )
 
     private fun ReciboCompraDto.paraDominio(itens: List<ItemCompraExtraido> = emptyList()) = ReciboCompra(

@@ -293,10 +293,23 @@ data class ItemCompraExtraidoDto(
     val id: String,
     @SerialName("familia_id") val familiaId: String? = null,
     @SerialName("recibo_id") val reciboId: String = "",
+    @SerialName("codigo_produto") val codigoProduto: String? = null,
     @SerialName("nome_produto") val nomeProduto: String = "",
     val quantidade: Double = 1.0,
     @SerialName("valor_unitario") val valorUnitario: Double = 0.0,
     @SerialName("categoria_sugerida") val categoriaSugerida: String? = null
+)
+
+@Serializable
+data class CatalogoProdutoCompraDto(
+    val id: String? = null,
+    @SerialName("familia_id") val familiaId: String? = null,
+    val fornecedor: String = "",
+    @SerialName("fornecedor_normalizado") val fornecedorNormalizado: String = "",
+    @SerialName("codigo_produto") val codigoProduto: String = "",
+    @SerialName("nome_produto") val nomeProduto: String = "",
+    @SerialName("categoria_sugerida") val categoriaSugerida: String? = "Alimentação",
+    @SerialName("ultimo_valor_unitario") val ultimoValorUnitario: Double = 0.0
 )
 
 @Serializable

@@ -136,7 +136,9 @@ interface RepositorioCompras {
         nomeProduto: String,
         quantidade: Double,
         valorUnitario: Double,
-        categoriaSugerida: String
+        categoriaSugerida: String,
+        codigoProduto: String? = null,
+        fornecedor: String? = null
     )
     suspend fun atualizarItemRecibo(
         itemId: String,
@@ -144,7 +146,9 @@ interface RepositorioCompras {
         nomeProduto: String,
         quantidade: Double,
         valorUnitario: Double,
-        categoriaSugerida: String
+        categoriaSugerida: String,
+        codigoProduto: String? = null,
+        fornecedor: String? = null
     )
     suspend fun atualizarCabecalhoRecibo(
         reciboId: String,

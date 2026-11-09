@@ -634,7 +634,9 @@ class RepositorioComprasMemoria : RepositorioCompras {
         nomeProduto: String,
         quantidade: Double,
         valorUnitario: Double,
-        categoriaSugerida: String
+        categoriaSugerida: String,
+        codigoProduto: String?,
+        fornecedor: String?
     ) = withContext(Dispatchers.IO) {
         val novoItem = ItemCompraExtraido(
             id = UUID.randomUUID().toString(),
@@ -642,7 +644,8 @@ class RepositorioComprasMemoria : RepositorioCompras {
             nomeProduto = nomeProduto,
             quantidade = quantidade,
             valorUnitario = valorUnitario,
-            categoriaSugerida = categoriaSugerida
+            categoriaSugerida = categoriaSugerida,
+            codigoProduto = codigoProduto?.trim()?.takeIf { it.isNotEmpty() }
         )
         estadoRecibos.update { lista ->
             lista.map { r ->
@@ -657,7 +660,9 @@ class RepositorioComprasMemoria : RepositorioCompras {
         nomeProduto: String,
         quantidade: Double,
         valorUnitario: Double,
-        categoriaSugerida: String
+        categoriaSugerida: String,
+        codigoProduto: String?,
+        fornecedor: String?
     ) = withContext(Dispatchers.IO) {
         estadoRecibos.update { lista ->
             lista.map { r ->
@@ -668,7 +673,8 @@ class RepositorioComprasMemoria : RepositorioCompras {
                                 nomeProduto = nomeProduto,
                                 quantidade = quantidade,
                                 valorUnitario = valorUnitario,
-                                categoriaSugerida = categoriaSugerida
+                                categoriaSugerida = categoriaSugerida,
+                                codigoProduto = codigoProduto?.trim()?.takeIf { it.isNotEmpty() }
                             )
                         } else item
                     }

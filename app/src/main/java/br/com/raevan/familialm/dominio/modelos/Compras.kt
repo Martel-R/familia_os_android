@@ -6,7 +6,8 @@ data class ItemCompraExtraido(
     val nomeProduto: String,
     val quantidade: Double = 1.0,
     val valorUnitario: Double,
-    val categoriaSugerida: String? = null
+    val categoriaSugerida: String? = null,
+    val codigoProduto: String? = null
 )
 
 data class ReciboCompra(
