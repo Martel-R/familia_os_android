@@ -40,7 +40,7 @@ fun TelaRotinas(
     }
 
     val tarefasOrdenadas = remember(tarefasFiltradas, usuarioLogado) {
-        val hoje = java.time.LocalDate.now()
+        val hoje = java.time.LocalDate.now(java.time.ZoneId.of("America/Belem"))
         val diaMesHoje = hoje.dayOfMonth
         val diaSemanaId = when (hoje.dayOfWeek) {
             java.time.DayOfWeek.MONDAY -> "Seg"
@@ -58,8 +58,8 @@ fun TelaRotinas(
                 val ehMinha = ehAberta || (usuarioLogado != null && t.responsavelId == usuarioLogado.id)
                 val disp = when (t.recorrencia) {
                     RecorrenciaTarefa.DIARIA -> true
-                    RecorrenciaTarefa.SEMANAL -> (t.diasSemana ?: "").split(",").map { it.trim() }.contains(diaSemanaId)
-                    RecorrenciaTarefa.MENSAL -> t.diaMes == diaMesHoje
+                    RecorrenciaTarefa.SEMANAL -> t.diasSemana.isNullOrBlank() || t.diasSemana.split(",").map { it.trim() }.contains(diaSemanaId)
+                    RecorrenciaTarefa.MENSAL -> t.diaMes == null || t.diaMes <= 0 || t.diaMes == diaMesHoje
                     RecorrenciaTarefa.UNICA -> true
                 }
                 if (ehMinha && disp && !t.estaConcluida) 0 else if (t.estaConcluida) 1 else 2
@@ -266,6 +266,10 @@ fun TelaRotinas(
         if (estado.abaSelecionada == 0) {
             var titulo by remember { mutableStateOf("") }
             var moedas by remember { mutableStateOf("10") }
+            var recorrenciaSelecionada by remember { mutableStateOf(RecorrenciaTarefa.DIARIA) }
+            val diasOpcoes = listOf("Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom")
+            val diasSelecionados = remember { mutableStateListOf<String>() }
+            var diaMesTexto by remember { mutableStateOf("1") }
             var abertaTodos by remember { mutableStateOf(true) }
             var responsavelId by remember { mutableStateOf<String?>(null) }
 
@@ -288,6 +292,48 @@ fun TelaRotinas(
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
+                        Text("Período de Reset / Recorrência:", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            val opcoesRecorrencia = listOf(
+                                RecorrenciaTarefa.DIARIA to "Diária",
+                                RecorrenciaTarefa.SEMANAL to "Semanal",
+                                RecorrenciaTarefa.MENSAL to "Mensal",
+                                RecorrenciaTarefa.UNICA to "Única"
+                            )
+                            items(opcoesRecorrencia.size) { idx ->
+                                val (rec, label) = opcoesRecorrencia[idx]
+                                FilterChip(
+                                    selected = recorrenciaSelecionada == rec,
+                                    onClick = { recorrenciaSelecionada = rec },
+                                    label = { Text(label) }
+                                )
+                            }
+                        }
+                        if (recorrenciaSelecionada == RecorrenciaTarefa.SEMANAL) {
+                            Text("Dias da semana (opcional):", fontSize = 12.sp)
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                items(diasOpcoes.size) { idx ->
+                                    val dia = diasOpcoes[idx]
+                                    val marcado = diasSelecionados.contains(dia)
+                                    FilterChip(
+                                        selected = marcado,
+                                        onClick = {
+                                            if (marcado) diasSelecionados.remove(dia) else diasSelecionados.add(dia)
+                                        },
+                                        label = { Text(dia, fontSize = 11.sp) }
+                                    )
+                                }
+                            }
+                        }
+                        if (recorrenciaSelecionada == RecorrenciaTarefa.MENSAL) {
+                            OutlinedTextField(
+                                value = diaMesTexto,
+                                onValueChange = { diaMesTexto = it.filter { ch -> ch.isDigit() }.take(2) },
+                                label = { Text("Dia do Mês (1 a 31)") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -314,10 +360,18 @@ fun TelaRotinas(
                     Button(
                         onClick = {
                             if (titulo.isNotBlank()) {
+                                val diasStr = if (recorrenciaSelecionada == RecorrenciaTarefa.SEMANAL && diasSelecionados.isNotEmpty()) {
+                                    diasSelecionados.joinToString(", ")
+                                } else null
+                                val diaMesVal = if (recorrenciaSelecionada == RecorrenciaTarefa.MENSAL) {
+                                    diaMesTexto.toIntOrNull()?.coerceIn(1, 31) ?: 1
+                                } else null
                                 viewModel.adicionarNovaTarefa(
                                     titulo = titulo,
                                     responsavelId = responsavelId,
-                                    recorrencia = RecorrenciaTarefa.DIARIA,
+                                    recorrencia = recorrenciaSelecionada,
+                                    diasSemana = diasStr,
+                                    diaMes = diaMesVal,
                                     moedasRecompensa = moedas.toIntOrNull() ?: 5,
                                     abertaParaTodos = abertaTodos
                                 )

@@ -592,8 +592,57 @@ class RepositorioFinancasSupabase : RepositorioFinancas {
 class RepositorioRotinasSupabase(
     private val repositorioUsuarios: RepositorioUsuarios
 ) : RepositorioRotinas {
+
+    private fun dataHojeBelem(): java.time.LocalDate =
+        java.time.LocalDate.now(java.time.ZoneId.of("America/Belem"))
+
+    /**
+     * Verifica se uma tarefa concluída já mudou de período (Diária, Semanal ou Mensal)
+     * e portanto deve ser resetada automaticamente para `esta_concluida = false`.
+     */
+    private fun deveResetarNoPeriodoAtual(dto: TarefaRotinaDto, hoje: java.time.LocalDate): Boolean {
+        if (!dto.estaConcluida) return false
+        val rec = dto.recorrencia.lowercase().trim()
+        if (rec == "unica") return false
+
+        val dataBaseStr = dto.ultimaConclusaoData?.take(10)?.takeIf { it.isNotBlank() }
+            ?: dto.atualizadoEm?.take(10)?.takeIf { it.isNotBlank() }
+            ?: return true
+
+        val dataUltima = runCatching { java.time.LocalDate.parse(dataBaseStr) }.getOrNull()
+            ?: return true
+
+        return when (rec) {
+            "diaria" -> dataUltima.isBefore(hoje)
+            "semanal" -> {
+                if (!dto.diasSemana.isNullOrBlank()) {
+                    // Se possui dias específicos da semana (ex: Ter, Qui, Sáb), reseta na virada do dia
+                    dataUltima.isBefore(hoje)
+                } else {
+                    // Semanal livre (1x por semana): reseta na virada da semana (Segunda-feira)
+                    val inicioSemanaAtual = hoje.with(
+                        java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY)
+                    )
+                    dataUltima.isBefore(inicioSemanaAtual)
+                }
+            }
+            "mensal" -> {
+                if (dto.diaMes != null && dto.diaMes > 0) {
+                    // Se possui dia fixo do mês, reseta na virada do dia para o próximo mês
+                    dataUltima.isBefore(hoje)
+                } else {
+                    // Mensal livre (1x por mês): reseta no dia 1º do novo mês
+                    val inicioMesAtual = hoje.withDayOfMonth(1)
+                    dataUltima.isBefore(inicioMesAtual)
+                }
+            }
+            else -> dataUltima.isBefore(hoje)
+        }
+    }
+
     override fun listarTarefas(): Flow<List<TarefaRotina>> = flow {
         val familiaId = obterFamiliaAtivaSegura()
+        val hoje = dataHojeBelem()
         val dtos = try {
             ClienteSupabase.client.from("tarefas_rotinas")
                 .select {
@@ -606,7 +655,31 @@ class RepositorioRotinasSupabase(
             emptyList()
         }
 
-        emit(dtos.map { it.paraDominio() })
+        // Aplica auto-reset imediato nas tarefas concluídas em períodos anteriores
+        val dtosNormalizados = dtos.map { dto ->
+            if (deveResetarNoPeriodoAtual(dto, hoje)) {
+                val novoResponsavel = if (dto.abertaParaTodos) null else dto.responsavelId
+                try {
+                    ClienteSupabase.client.from("tarefas_rotinas")
+                        .update({
+                            set("esta_concluida", false)
+                            if (dto.abertaParaTodos) {
+                                set("responsavel_id", null as String?)
+                            }
+                        }) {
+                            filter { eq("id", dto.id) }
+                        }
+                } catch (_: Exception) {}
+                dto.copy(
+                    estaConcluida = false,
+                    responsavelId = novoResponsavel
+                )
+            } else {
+                dto
+            }
+        }.sortedWith(compareBy<TarefaRotinaDto> { it.estaConcluida }.thenByDescending { it.atualizadoEm ?: "" })
+
+        emit(dtosNormalizados.map { it.paraDominio() })
     }.catch { emit(emptyList()) }.flowOn(Dispatchers.IO)
 
     override fun listarItensLoja(): Flow<List<ItemLojaPrivilegio>> = flow {
@@ -634,19 +707,33 @@ class RepositorioRotinasSupabase(
                 .select { filter { eq("id", tarefaId) } }
                 .decodeSingleOrNull<TarefaRotinaDto>() ?: return@withContext 0
 
-            val novaConclusao = !atual.estaConcluida
-            val hoje = java.time.LocalDate.now().toString()
+            val hojeLocal = dataHojeBelem()
+            val hoje = hojeLocal.toString()
+
+            // Se estava concluída apenas em um período anterior, considera como não concluída no período atual
+            val estavaConcluidaNoPeriodoAtual = atual.estaConcluida && !deveResetarNoPeriodoAtual(atual, hojeLocal)
+            val novaConclusao = !estavaConcluidaNoPeriodoAtual
+
+            val usuarioAtivoId = br.com.raevan.familialm.nucleo.sessao.SessaoFamilia.obterUsuarioId()
+            val responsavelParaMoedas = atual.responsavelId ?: usuarioAtivoId
+            val novoResponsavelBanco = when {
+                novaConclusao && (atual.abertaParaTodos || atual.responsavelId == null) ->
+                    usuarioAtivoId ?: atual.responsavelId
+                !novaConclusao && atual.abertaParaTodos -> null
+                else -> atual.responsavelId
+            }
 
             ClienteSupabase.client.from("tarefas_rotinas")
                 .update({
                     set("esta_concluida", novaConclusao)
                     set("ultima_conclusao_data", if (novaConclusao) hoje else null)
+                    set("responsavel_id", novoResponsavelBanco)
                 }) {
                     filter { eq("id", tarefaId) }
                 }
 
             val delta = if (novaConclusao) atual.moedasRecompensa else -atual.moedasRecompensa
-            atual.responsavelId?.let { respId ->
+            responsavelParaMoedas?.let { respId ->
                 repositorioUsuarios.atualizarSaldoMoedas(respId, delta)
             }
             delta

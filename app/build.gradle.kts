@@ -13,8 +13,8 @@ android {
         applicationId = "br.com.raevan.familialm"
         minSdk = 29
         targetSdk = 35
-        versionCode = 10
-        versionName = "2.8-assinatura-fixa"
+        versionCode = 11
+        versionName = "2.9-reset-rotinas"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

@@ -310,6 +310,7 @@ fun TelaPainelPrincipal(
                 val tarefa = estado.tarefasDoDia[indice]
                 ItemTarefaPainel(
                     tarefa = tarefa,
+                    usuarioLogadoId = estado.usuarioLogado?.id,
                     aoAlternar = { viewModel.alternarConclusaoTarefa(tarefa.id) }
                 )
             }
@@ -434,7 +435,7 @@ fun ItemTarefaPainel(
     usuarioLogadoId: String? = null,
     aoAlternar: () -> Unit
 ) {
-    val hoje = java.time.LocalDate.now()
+    val hoje = java.time.LocalDate.now(java.time.ZoneId.of("America/Belem"))
     val diaMesHoje = hoje.dayOfMonth
     val diaSemanaId = when (hoje.dayOfWeek) {
         java.time.DayOfWeek.MONDAY -> "Seg"
@@ -447,16 +448,33 @@ fun ItemTarefaPainel(
     }
 
     val ehAberta = tarefa.abertaParaTodos || tarefa.responsavelId == null
-    val ehMinhaResponsabilidade = ehAberta || (usuarioLogadoId != null && tarefa.responsavelId == usuarioLogadoId)
+    val ehMinhaResponsabilidade = ehAberta || usuarioLogadoId == null || tarefa.responsavelId == usuarioLogadoId
 
     val disponivelHoje = when (tarefa.recorrencia) {
         RecorrenciaTarefa.DIARIA -> true
         RecorrenciaTarefa.SEMANAL -> {
-            val dias = (tarefa.diasSemana ?: "").split(",").map { it.trim() }
-            dias.contains(diaSemanaId)
+            if (tarefa.diasSemana.isNullOrBlank()) {
+                true
+            } else {
+                val dias = tarefa.diasSemana.split(",").map { it.trim() }
+                dias.contains(diaSemanaId)
+            }
         }
-        RecorrenciaTarefa.MENSAL -> tarefa.diaMes == diaMesHoje
+        RecorrenciaTarefa.MENSAL -> {
+            if (tarefa.diaMes == null || tarefa.diaMes <= 0) {
+                true
+            } else {
+                tarefa.diaMes == diaMesHoje
+            }
+        }
         RecorrenciaTarefa.UNICA -> true
+    }
+
+    val rotuloPeriodo = when (tarefa.recorrencia) {
+        RecorrenciaTarefa.DIARIA -> "🔄 Diária"
+        RecorrenciaTarefa.SEMANAL -> if (!tarefa.diasSemana.isNullOrBlank()) "📅 Semanal (${tarefa.diasSemana})" else "📅 Semanal"
+        RecorrenciaTarefa.MENSAL -> if (tarefa.diaMes != null && tarefa.diaMes > 0) "🗓️ Mensal (Dia ${tarefa.diaMes})" else "🗓️ Mensal"
+        RecorrenciaTarefa.UNICA -> "⚡ Única"
     }
 
     val podeConcluir = disponivelHoje && ehMinhaResponsabilidade
@@ -497,6 +515,11 @@ fun ItemTarefaPainel(
                         fontSize = 11.sp,
                         color = if (ehAberta) VerdeEsmeralda else MaterialTheme.colorScheme.onSurfaceVariant,
                         fontWeight = if (ehAberta) FontWeight.Bold else FontWeight.Normal
+                    )
+                    Text(
+                        text = " • $rotuloPeriodo",
+                        fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     if (!disponivelHoje) {
                         Text(

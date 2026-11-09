@@ -68,6 +68,7 @@ class RotinasViewModel : ViewModel() {
             if (moedas > 0) {
                 _estado.update { it.copy(mensagemSucesso = "Parabéns! +$moedas moedas adicionadas à sua carteira! 🪙") }
             }
+            observarDados()
         }
     }
 
@@ -91,6 +92,8 @@ class RotinasViewModel : ViewModel() {
         titulo: String,
         responsavelId: String?,
         recorrencia: RecorrenciaTarefa,
+        diasSemana: String? = null,
+        diaMes: Int? = null,
         moedasRecompensa: Int,
         abertaParaTodos: Boolean
     ) {
@@ -100,8 +103,8 @@ class RotinasViewModel : ViewModel() {
                 titulo = titulo,
                 responsavelId = responsavelId,
                 recorrencia = recorrencia,
-                diasSemana = null,
-                diaMes = null,
+                diasSemana = diasSemana,
+                diaMes = diaMes,
                 moedasRecompensa = moedasRecompensa,
                 abertaParaTodos = abertaParaTodos
             )

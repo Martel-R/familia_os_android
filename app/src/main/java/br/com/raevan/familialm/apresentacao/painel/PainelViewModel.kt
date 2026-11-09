@@ -84,6 +84,7 @@ class PainelViewModel : ViewModel() {
             if (moedas > 0) {
                 _estado.update { it.copy(mensagemAlerta = "+$moedas moedas ganhas! Parabéns!") }
             }
+            observarDados()
         }
     }
 
