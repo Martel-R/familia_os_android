@@ -11,6 +11,7 @@ import io.github.jan.supabase.postgrest.query.Order
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
@@ -714,7 +715,11 @@ class RepositorioRotinasSupabase(
             val estavaConcluidaNoPeriodoAtual = atual.estaConcluida && !deveResetarNoPeriodoAtual(atual, hojeLocal)
             val novaConclusao = !estavaConcluidaNoPeriodoAtual
 
-            val usuarioAtivoId = br.com.raevan.familialm.nucleo.sessao.SessaoFamilia.obterUsuarioId()
+            val usuarioAtivoId = try {
+                repositorioUsuarios.obterUsuarioLogado().firstOrNull()?.id
+            } catch (_: Exception) {
+                null
+            }
             val responsavelParaMoedas = atual.responsavelId ?: usuarioAtivoId
             val novoResponsavelBanco = when {
                 novaConclusao && (atual.abertaParaTodos || atual.responsavelId == null) ->
